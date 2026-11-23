@@ -3,6 +3,13 @@ title: Create your first DNS policy
 pcx_content_type: learning-unit
 sidebar:
   order: 1
+description: Build your first Gateway DNS policy.
+products:
+  - gateway
+  - cloudflare-one
+  - dlp
+  - casb
+  - browser-isolation
 ---
 
 import { Render, Tabs, TabItem, APIRequest } from "~/components";
@@ -17,18 +24,18 @@ To create a new DNS policy:
 
 <TabItem label="Dashboard">
 
-1. In [Cloudflare One](https://one.dash.cloudflare.com/), go to **Traffic policies** > **Firewall policies**.
+1. In the [Cloudflare dashboard](https://dash.cloudflare.com/), go to **Zero Trust** > **Traffic policies** > **Firewall policies**.
 2. In the **DNS** tab, select **Add a policy**.
 3. Name the policy.
 4. Under **Traffic**, build a logical expression that defines the traffic you want to allow or block.
-5. Choose an **Action** to take when traffic matches the logical expression. For example, we recommend adding a policy to block all [security categories](/cloudflare-one/traffic-policies/domain-categories/#security-categories):
+5. Choose an **Action** to take when traffic matches the logical expression. For example, we recommend adding a policy to block all [security categories](/cloudflare-one/traffic-controls/domain-categories/#security-categories):
    <Render
    	file="gateway/policies/block-security-categories"
    	product="cloudflare-one"
    />
 6. Select **Create policy**.
 
-For more information, refer to [DNS policies](/cloudflare-one/traffic-policies/dns-policies/).
+For more information, refer to [DNS policies](/cloudflare-one/traffic-controls/dns-policies/).
 
 </TabItem>
 

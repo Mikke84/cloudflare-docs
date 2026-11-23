@@ -4,11 +4,15 @@ pcx_content_type: get-started
 sidebar:
   order: 2
 description: Use R2 with S3-compatible SDKs like boto3 and the AWS SDK.
+products:
+  - r2
 ---
 
 import { LinkCard, PackageManagers, Render, Tabs, TabItem, Steps } from "~/components";
 
 R2 provides support for a [S3-compatible API](/r2/api/s3/api/), which means you can use any S3 SDK, library, or tool to interact with your buckets. If you have existing code that works with S3, you can use it with R2 by changing the endpoint URL.
+
+To develop without accessing a deployed bucket, use the [local S3-compatible endpoint](/r2/local-development/#serve-buckets-over-the-s3-api).
 
 ## 1. Create a bucket
 

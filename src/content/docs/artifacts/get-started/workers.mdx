@@ -7,6 +7,8 @@ sidebar:
 head:
   - tag: title
     content: Get started - Workers
+products:
+  - artifacts
 ---
 
 import {
@@ -24,16 +26,24 @@ Create an Artifacts repo from a Worker and use a standard Git client to push and
 
 By the end of this guide, you will create a Worker, bind it to Artifacts, create a repo through the Workers binding, push a commit, and clone the same repo back with a standard Git client.
 
+Start by reading [Namespaces](/artifacts/concepts/namespaces/), then choose the namespace name you will use. This guide uses `default` in the examples.
+
+## Set up with your coding agent
+
+<Render file="agent-setup" product="artifacts" />
+
+To set up Artifacts manually, follow the steps below.
+
 ## Prerequisites
 
 <Render file="prereqs" product="workers" />
 
 You also need:
 
-- Wrangler authenticated with `wrangler login`.
-- Access to Artifacts in your Cloudflare account.
-- An existing Artifacts namespace, for example `default`.
-- A local `git` client.
+- Wrangler installed. You do not need Cloudflare credentials to develop with Artifacts locally. Authenticate Wrangler before you deploy or use a remote binding. For local OAuth authentication or CI setup, refer to [`wrangler login`](/workers/wrangler/commands/general/#login) and [Running Wrangler in CI/CD](/workers/ci-cd/).
+- Access to Artifacts on the [Workers Paid plan](/artifacts/platform/pricing/) for the deployment step.
+- A namespace name, for example `default`.
+- Git 2.32 or newer installed on your development machine and available on `PATH`. The local simulator checks the Git version at startup.
 - `jq`, if you want to extract response fields automatically.
 
 ## 1. Create a Worker project
@@ -49,10 +59,9 @@ You also need:
    />
 
    <Render
-   	file="c3-post-run-steps"
+   	file="c3-post-run-steps-hello-world"
    	product="workers"
    	params={{
-   		category: "hello-world",
    		type: "Worker only",
    		lang: "TypeScript",
    	}}
@@ -75,18 +84,18 @@ Open your Wrangler config file and add the Artifacts binding:
 ```toml title="wrangler.toml"
 name = "artifacts-worker"
 main = "src/index.ts"
+upload_source_maps = true
 compatibility_date = "$today"
 
 [[artifacts]]
 binding = "ARTIFACTS"
 namespace = "default"
+# To use deployed Artifacts during local development, set remote = true.
 ```
 
 </WranglerConfig>
 
-This exposes Artifacts as `env.ARTIFACTS` inside your Worker.
-
-If you authenticate with `wrangler login`, Wrangler requests `artifacts:write` by default.
+This exposes Artifacts as `env.ARTIFACTS` inside your Worker. During local development, an omitted `remote` setting uses local storage. Set `remote = true` only if you want to use deployed Artifacts. Local and deployed repos do not synchronize. For prerequisites, persistence, and migration from implicit remote bindings, refer to [Local development](/artifacts/guides/local-development/).
 
 If you are using TypeScript, regenerate your local binding types:
 
@@ -101,19 +110,14 @@ Replace `src/index.ts` with the following code:
 <TypeScriptExample filename="src/index.ts">
 
 ```ts
-interface Env {
-	ARTIFACTS: Artifacts;
-}
-
 export default {
-	async fetch(request: Request, env: Env): Promise<Response> {
+	async fetch(request, env) {
 		const url = new URL(request.url);
 
 		if (request.method === "POST" && url.pathname === "/repos") {
 			// Read the repo name from the request body so the route is reusable.
-			const body = (await request.json().catch(() => ({}))) as {
-				name?: string;
-			};
+			const body = await request.json().catch(() => ({}));
+
 			const repoName = body.name ?? "starter-repo";
 
 			// Create the repo and return the remote URL plus initial write token.
@@ -131,12 +135,12 @@ export default {
 			headers: { Allow: "POST" },
 		});
 	},
-} satisfies ExportedHandler<Env>;
+};
 ```
 
 </TypeScriptExample>
 
-This Worker does one job: create an Artifacts repo and return the values your Git client needs next.
+This Worker creates an Artifacts repo and returns the remote URL and token your Git client needs to push and pull.
 
 :::caution[Protect token-issuing routes]
 This example omits authentication so it can focus on the Artifacts flow. In production, authorize the caller before creating repos or returning write tokens.
@@ -150,9 +154,7 @@ Start local development:
 
 <PackageManagers type="exec" pkg="wrangler" args="dev" />
 
-In a second terminal, choose one of the following ways to create a repo through your Worker.
-
-If you rerun this guide, use a different repo name in the request body.
+Then, open a second terminal and send a request to your Worker to create a new Artifacts repo:
 
 <Tabs>
 	<TabItem label="Manual">
@@ -165,21 +167,26 @@ curl http://localhost:8787/repos \
   }'
 ```
 
-The response resembles the following:
+Your Worker will call `env.ARTIFACTS.create()` and return three values you will need for Git operations:
+
 
 ```json
 {
 	"name": "starter-repo",
-	"remote": "https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/default/starter-repo.git",
-	"token": "art_v1_0123456789abcdef0123456789abcdef01234567?expires=1760000000"
+	"remote": "http://127.0.0.1:<PORT>/git/default/starter-repo.git",
+	"token": "<REPO_TOKEN>"
 }
 ```
+- `name`: the repo name. Must be unique within the namespace.
+- `remote`: the local Git URL. Use the returned port rather than copying the placeholder. A deployed Worker instead returns an HTTPS URL for your account.
+- `token`: a repo-scoped credential for Git operations. Keep its full value private.
 
 Copy the `remote` and `token` values into local shell variables:
 
 ```sh
 export ARTIFACTS_REMOTE="<PASTE_REMOTE_FROM_RESPONSE>"
-export ARTIFACTS_TOKEN="<PASTE_TOKEN_FROM_RESPONSE>"
+read -rs ARTIFACTS_TOKEN # Paste the token without saving it in your shell history.
+printf '\n'
 ```
 
 	</TabItem>
@@ -189,8 +196,6 @@ export ARTIFACTS_TOKEN="<PASTE_TOKEN_FROM_RESPONSE>"
 RESPONSE=$(curl --silent http://localhost:8787/repos \
   --header "Content-Type: application/json" \
   --data '{"name":"starter-repo"}')
-
-printf '%s\n' "$RESPONSE"
 
 export ARTIFACTS_REMOTE=$(printf '%s' "$RESPONSE" | jq -r '.remote')
 export ARTIFACTS_TOKEN=$(printf '%s' "$RESPONSE" | jq -r '.token')
@@ -202,7 +207,7 @@ export ARTIFACTS_TOKEN=$(printf '%s' "$RESPONSE" | jq -r '.token')
 
 ## 5. Push your first commit with git
 
-Create a local repository and push it to Artifacts:
+In the previous step, your Worker created an empty Artifacts repo. Now you will create a local Git repo, add a file, and push it to Artifacts — the same way you would push to any Git remote.
 
 ```sh
 mkdir artifacts-demo
@@ -215,15 +220,9 @@ git remote add origin "$ARTIFACTS_REMOTE"
 git -c http.extraHeader="Authorization: Bearer $ARTIFACTS_TOKEN" push -u origin main
 ```
 
-This uses the recommended header-based form and keeps the token out of the remote URL.
+The `-c http.extraHeader` flag passes the token as a request header, which keeps it out of your Git config and shell history.
 
-If you need a self-contained remote URL for a short-lived command, build one from the token secret instead:
-
-```sh
-export ARTIFACTS_TOKEN_SECRET="${ARTIFACTS_TOKEN%%\?expires=*}"
-export ARTIFACTS_AUTH_REMOTE="https://x:${ARTIFACTS_TOKEN_SECRET}@${ARTIFACTS_REMOTE#https://}"
-git push "$ARTIFACTS_AUTH_REMOTE" HEAD:main
-```
+For other authentication options, refer to [Git protocol](/artifacts/api/git-protocol/).
 
 ## 6. Pull the repo with a regular Git client
 
@@ -237,13 +236,15 @@ git -C artifacts-clone log --oneline -1
 
 You should see the commit you pushed in the previous step.
 
-You can also clone with a self-contained remote URL for a short-lived command:
-
-```sh
-git clone "$ARTIFACTS_AUTH_REMOTE" artifacts-clone
-```
+The local Git port is saved with your local state and reused after a dev-server restart. If it changes because another process took it, use the new `remote` URL returned by your Worker.
 
 ## 7. Deploy your Worker
+
+Switch back to your Worker project directory:
+
+```sh
+cd artifacts-worker
+```
 
 Deploy the Worker so you can create repos without running `wrangler dev`:
 
@@ -252,6 +253,12 @@ Deploy the Worker so you can create repos without running `wrangler dev`:
 Wrangler prints your `workers.dev` URL. Use the same `curl` request against that URL to create additional repos from production.
 
 ## Next steps
+
+<LinkCard
+	title="Local development"
+	href="/artifacts/guides/local-development/"
+	description="Configure local Artifacts, persistence, Git, and explicit remote opt-in."
+/>
 
 <LinkCard
 	title="Workers binding reference"

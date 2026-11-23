@@ -1,8 +1,11 @@
 ---
 pcx_content_type: how-to
 title: /scrape - Scrape HTML elements
+description: Extract structured data from specific webpage elements using the Browser Run /scrape endpoint.
 sidebar:
-  order: 7
+  order: 8
+products:
+  - browser-run
 ---
 
 import { Tabs, TabItem, Render } from "~/components";
@@ -14,14 +17,15 @@ The `/scrape` endpoint extracts structured data from specific elements on a webp
 ## Endpoint
 
 ```txt
-https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-rendering/scrape
+https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-run/scrape
 ```
 
 ## Required fields
 
-You must provide either `url` or `elements`:
+You must provide `elements` and exactly one of `url` or `html`:
 
 - `url` (string)
+- `html` (string)
 - `elements` (array of objects) — each object must include `selector` (string)
 
 ## Common use cases
@@ -38,7 +42,7 @@ You must provide either `url` or `elements`:
 Go to `https://example.com` and extract metadata from all `h1` and `a` elements in the DOM.
 
 ```bash
-curl -X POST 'https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-rendering/scrape' \
+curl -X POST 'https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-run/scrape' \
   -H 'Authorization: Bearer <apiToken>' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -101,10 +105,28 @@ const client = new Cloudflare({
 
 const scrapes = await client.browserRendering.scrape.create({
 	account_id: process.env["CLOUDFLARE_ACCOUNT_ID"],
+	url: "https://example.com/",
 	elements: [{ selector: "h1" }, { selector: "a" }],
 });
 
 console.log(scrapes);
+```
+
+</TabItem> <TabItem label="Workers binding">
+
+```typescript
+interface Env {
+	BROWSER: BrowserRun;
+}
+
+export default {
+	async fetch(request, env): Promise<Response> {
+		return await env.BROWSER.quickAction("scrape", {
+			url: "https://example.com/",
+			elements: [{ selector: "h1" }, { selector: "a" }],
+		});
+	},
+} satisfies ExportedHandler<Env>;
 ```
 
 </TabItem> </Tabs>
@@ -121,7 +143,7 @@ Many more options exist, like setting HTTP credentials using `authenticate`, set
     - `attributes` _(array of objects)_ - List of extracted attributes such as `href` for links.
     - `height`, `width`, `top`, `left` _(number)_ - Position and dimensions of the element.
 
-## Advanced Usage
+## Advanced usage
 
 :::note[Looking for more parameters?]
 Visit the [Browser Run API reference](/api/resources/browser_rendering/subresources/scrape/methods/create/) for all available parameters, such as setting HTTP credentials using `authenticate`, setting `cookies`, and customizing load behavior using `gotoOptions`.

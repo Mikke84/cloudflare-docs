@@ -1,8 +1,11 @@
 ---
 pcx_content_type: concept
 title: Limits
+description: Build, deployment, and custom domain limits for Cloudflare Pages by plan type.
 sidebar:
   order: 1
+products:
+  - pages
 
 ---
 
@@ -31,6 +34,26 @@ Based on your Cloudflare plan type, a Pages project is limited to a specific num
 | 100  | 250 | 500      | 500[^1]    |
 
 [^1]: If you need more custom domains, contact your account team.
+
+## Deployments
+
+| Limit                   | Value                                                    |
+| ----------------------- | -------------------------------------------------------- |
+| Deployment retention    | 30 days                                                  |
+| Deployments always kept | 100 most recent, plus your current production deployment |
+
+Deployments are kept for 30 days. After 30 days, a deployment is deleted unless:
+
+- It is one of the project's 100 most recent deployments. Both production and preview deployments count.
+- It is your current production deployment.
+
+For example, a project has 250 deployments. Its 100 most recent deployments are always kept. Of the other 150, deployments created in the last 30 days are kept, and older ones are deleted unless one of them is your current production deployment.
+
+When a deployment is deleted:
+
+- It no longer appears in your project's deployment list in the dashboard or API.
+- Its unique preview URL, such as `<hash>.<project>.pages.dev`, stops working.
+- You cannot [roll back](/pages/configuration/rollbacks/) to it.
 
 ## Files
 
@@ -62,7 +85,7 @@ An individual header in a `_headers` file can have a maximum of 2,000 characters
 
 ## Preview deployments
 
-You can have an unlimited number of [preview deployments](/pages/configuration/preview-deployments/) active on your project at a time.
+Preview deployments count toward the deployments that Cloudflare keeps for each project. Preview deployments older than 30 days are deleted, unless they are one of the project's 100 most recent deployments. For more information, refer to [Deployments](#deployments).
 
 ## Redirects
 
@@ -74,6 +97,17 @@ Your Pages site can be managed by an unlimited number of users via the Cloudflar
 
 ## Projects
 
-Cloudflare Pages has a soft limit of 100 projects within your account in order to prevent abuse. If you need this limit raised, contact your Cloudflare account team or use the Limit Increase Request Form at the top of this page.
+Cloudflare Pages has a limit of 100 projects[^2] per account. This limit is not routinely increased.
 
-In order to protect against abuse of the service, Cloudflare may temporarily disable your ability to create new Pages projects, if you are deploying a large number of applications in a short amount of time. Contact support if you need this limit increased.
+[^2]: If you need a higher project limit, use [Workers for Platforms](/cloudflare-for-platforms/workers-for-platforms/).
+
+If you need to host more than 100 sites, use one of these products designed for scale:
+
+- **[Workers for Platforms](/cloudflare-for-platforms/workers-for-platforms/)** — Deploy sites and applications at scale with no project limit. Supports [static assets](/cloudflare-for-platforms/workers-for-platforms/configuration/static-assets/).
+- **[Workers Static Assets](/workers/static-assets/)** — Deploy static sites as individual Workers. Paid plans support up to 500 Workers per account, each serving up to 100,000 static asset files.
+
+:::note
+The Workers project limit (100 on Free, 500 on paid plans) is separate from the Pages project limit. Refer to [Workers limits](/workers/platform/limits/#number-of-workers) for details.
+:::
+
+In order to protect against abuse of the service, Cloudflare limits the number of new Pages projects you can create within your first 48 hours of using the service. If you are temporarily blocked from creating new projects, this restriction will automatically lift once the initial 48-hour window has passed.

@@ -8,6 +8,8 @@ sidebar:
 description: Create a Durable Object that stores the last location it was
   accessed from in-memory.
 reviewed: 2023-08-04
+products:
+  - durable-objects
 ---
 
 import { TabItem, Tabs, WranglerConfig } from "~/components";
@@ -126,6 +128,7 @@ Finally, configure your Wrangler file to include a Durable Object [binding](/dur
 	"$schema": "./node_modules/wrangler/config-schema.json",
 	"name": "durable-object-in-memory-state",
 	"main": "src/index.ts",
+	"upload_source_maps": true,
 	"durable_objects": {
 		"bindings": [
 			{

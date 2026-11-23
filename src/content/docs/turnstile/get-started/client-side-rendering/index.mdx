@@ -4,6 +4,9 @@ pcx_content_type: get-started
 description: Embed a Turnstile widget on your website with JavaScript or HTML.
 products:
   - turnstile
+tags:
+  - JavaScript
+  - SPA
 sidebar:
   order: 3
 ---
@@ -65,8 +68,18 @@ Cloudflare recommends using implicit rendering on the following scenarios:
 ></script>
 ```
 
+For a China domain widget, use the China-hosted script instead:
+
+```html wrap
+<script
+	src="https://challenges.cloudflare-cn.com/turnstile/v0/api.js"
+	async
+	defer
+></script>
+```
+
 :::caution
-The `api.js` file must be fetched from the exact URL shown above. Proxying or caching this file will cause Turnstile to fail when future updates are released.
+Load `api.js` from the exact URL for your widget's region. Proxying or caching this file will cause Turnstile to fail when future updates are released.
 :::
 
 #### 2. (Optional) Optimize performance with resource hints
@@ -75,6 +88,12 @@ Add resource hints to improve loading performance by establishing early connecti
 
 ```html wrap
 <link rel="preconnect" href="https://challenges.cloudflare.com" />
+```
+
+For a China domain widget, preconnect to the China-hosted domain instead:
+
+```html wrap
+<link rel="preconnect" href="https://challenges.cloudflare-cn.com" />
 ```
 
 #### 3. Add widget elements
@@ -114,8 +133,8 @@ Turnstile is often used to protect forms on websites such as login forms or cont
 </head>
 <body>
     <form action="/login" method="POST">
-        <input type="text" name="username" placeholder="Username" required />
-        <input type="password" name="password" placeholder="Password" required />
+        <input type="text" name="username" placeholder="Username" autocomplete="username" required />
+        <input type="password" name="password" placeholder="Password" autocomplete="current-password" required />
 
         <!-- Turnstile widget with basic configuration -->
         <div class="cf-turnstile" data-sitekey="<YOUR-SITE-KEY>"></div>
@@ -337,8 +356,18 @@ This will not call any callback and will remove all related DOM elements.
 	</head>
 	<body>
 		<form id="login-form">
-			<input type="text" name="username" placeholder="Username" />
-			<input type="password" name="password" placeholder="Password" />
+			<input
+				type="text"
+				name="username"
+				placeholder="Username"
+				autocomplete="username"
+			/>
+			<input
+				type="password"
+				name="password"
+				placeholder="Password"
+				autocomplete="current-password"
+			/>
 			<div id="turnstile-widget"></div>
 			<button type="submit">Login</button>
 		</form>

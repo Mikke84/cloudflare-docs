@@ -1,114 +1,141 @@
 ---
-title: Quick start
+title: Build your first Durable Agent
 pcx_content_type: get-started
 sidebar:
   order: 1
-description: Build your first agent in 10 minutes — a counter with persistent state that syncs to a React frontend in real-time.
+description: Build your first agent on Cloudflare. Run the Pi harness in a Durable Object with the Lifecycle, give it a Cloudflare Computer workspace, connect to it over WebSockets, and deploy it.
+products:
+  - agents
 ---
 
 import {
+	PackageManagers,
+	Render,
+	Steps,
 	TypeScriptExample,
 	WranglerConfig,
-	PackageManagers,
-	LinkCard,
 } from "~/components";
 
-Build AI agents that persist, think, and act. Agents run on Cloudflare's global network, maintain state across requests, and connect to clients in real-time via WebSockets.
+A Durable Agent is a [Durable Object](/durable-objects/) with the Agents SDK [Lifecycle](/agents/runtime/lifecycle/) installed. The Lifecycle starts the [capabilities](/agents/runtime/capabilities/) you add to the object. The most important one is the harness: the agent loop that calls the model, runs tools, and decides when the agent is done.
 
-**What you will build:** A counter agent with persistent state that syncs to a React frontend in real-time.
+In this guide, you build an agent that:
 
-**Time:** ~10 minutes
+- runs the [Pi harness](/agents/harnesses/pi/) in a Durable Object,
+- works on files in a [Cloudflare Computer workspace](/agents/tools/filesystem/), stored in the same object,
+- talks to clients through the [`WebSockets`](/agents/runtime/capabilities/websockets/) capability.
 
-## Create a new project
+You do not need an API key. The agent uses [Workers AI](/workers-ai/) through the `AI` binding.
 
-<PackageManagers
-	type="create"
-	pkg="cloudflare@latest"
-	args={"--template cloudflare/agents-starter"}
-/>
+## Prerequisites
 
-Then install dependencies and start the dev server:
+- A [Cloudflare account](https://dash.cloudflare.com/sign-up)
+- Node.js 22.19 or later
 
-```sh
-cd my-agent
-npm install
-npm run dev
-```
+## Create a project
 
-This creates a project with:
+<Steps>
 
-- `src/server.ts` — Your agent code
-- `src/client.tsx` — React frontend
-- `wrangler.jsonc` — Cloudflare configuration
-- `tsconfig.json` — Extends `agents/tsconfig` for correct decorator and module settings
-- `vite.config.ts` — Includes the `agents/vite` plugin for decorator support
+1. Create a Worker project:
 
-The starter template includes two important SDK integrations. If you are setting up a project manually, add both:
+   <PackageManagers
+   	type="create"
+   	pkg="cloudflare@latest"
+   	args="my-agent --type=hello-world --lang=ts"
+   />
 
-**tsconfig.json** — extends `agents/tsconfig`, which sets `target: "ES2021"` and other recommended options:
+2. Go to the project directory and install the Agents SDK, the Pi packages, and Cloudflare Computer:
 
-```json
+   ```sh
+   cd my-agent
+   ```
+
+   <Render
+   	file="pi-install"
+   	product="agents"
+   	params={{ extra: "@cloudflare/computer" }}
+   />
+
+</Steps>
+
+## Configure Wrangler
+
+Add the `AI` binding and a SQLite-backed Durable Object to your Wrangler configuration file:
+
+<WranglerConfig>
+
+```jsonc
 {
-	"extends": "agents/tsconfig"
+	"name": "my-agent",
+	"main": "src/index.ts",
+	"upload_source_maps": true,
+	"compatibility_date": "$today",
+	"compatibility_flags": ["nodejs_compat"],
+	"ai": {
+		"binding": "AI",
+	},
+	"durable_objects": {
+		"bindings": [{ "name": "Assistant", "class_name": "Assistant" }],
+	},
+	"exports": {
+		"Assistant": { "type": "durable-object", "storage": "sqlite" },
+	},
 }
 ```
 
-**vite.config.ts** — includes the `agents()` plugin, which handles TC39 decorator transforms (required for `@callable()` in Vite 8):
+</WranglerConfig>
+
+- `ai` adds the [Workers AI](/workers-ai/) binding as `env.AI`.
+  <Render file="durable-object-config" product="agents" />
+
+## Run a harness on a Durable Object
+
+Replace `src/index.ts` with an `Assistant` Durable Object that runs the Pi harness:
+
+<TypeScriptExample filename="src/index.ts">
 
 ```ts
-import { cloudflare } from "@cloudflare/vite-plugin";
-import react from "@vitejs/plugin-react";
-import agents from "agents/vite";
-import { defineConfig } from "vite";
+import { DurableObject } from "cloudflare:workers";
+import { createModels } from "@earendil-works/pi-ai/models";
+import { createRegistry, Harness } from "@earendil-works/pi-durable";
+import { PiHarness } from "agents/harness/pi";
+import { Lifecycle } from "agents/lifecycle";
+import { createAI } from "agents/models/pi-ai";
+import { routeAgentRequest } from "agents/routing";
 
-export default defineConfig({
-	plugins: [agents(), react(), cloudflare()],
-});
-```
+export class Assistant extends DurableObject<Env> {
+	// Workers AI models, through the AI binding
+	readonly ai = createAI({ binding: this.env.AI });
+	// Pi's tools and prompt sections. Create one per object.
+	readonly registry = createRegistry();
 
-Open [http://localhost:5173](http://localhost:5173) to see your agent in action.
+	// The harness: the Pi agent loop, stored in this object's database
+	readonly harness = new PiHarness({
+		harness: ({ storage, context, onWake }) => {
+			const models = createModels();
+			models.setProvider(this.ai.provider);
+			return Harness.open(
+				storage,
+				{ models, registry: this.registry, onWake },
+				context,
+			);
+		},
+		defaults: { model: this.ai("@cf/deepseek-ai/deepseek-v4.1-flash-1017") },
+	});
 
-## Your first agent
+	// The Lifecycle starts the harness inside the Durable Object
+	readonly lifecycle = Lifecycle.install(this).use(this.harness);
 
-Build a simple counter agent from scratch. Replace `src/server.ts`:
-
-<TypeScriptExample>
-
-```ts title="src/server.ts"
-import { Agent, routeAgentRequest, callable } from "agents";
-
-// Define the state shape
-export type CounterState = {
-	count: number;
-};
-
-// Create the agent
-export class CounterAgent extends Agent<Env, CounterState> {
-	// Initial state for new instances
-	initialState: CounterState = { count: 0 };
-
-	// Methods marked with @callable can be called from the client
-	@callable()
-	increment() {
-		this.setState({ count: this.state.count + 1 });
-		return this.state.count;
-	}
-
-	@callable()
-	decrement() {
-		this.setState({ count: this.state.count - 1 });
-		return this.state.count;
-	}
-
-	@callable()
-	reset() {
-		this.setState({ count: 0 });
+	async onRequest(request: Request): Promise<Response> {
+		if (request.method !== "POST") {
+			return Response.json(await this.harness.messages());
+		}
+		const { status, text } = await this.harness.prompt(await request.text());
+		return Response.json({ status, text });
 	}
 }
 
-// Route requests to agents
 export default {
-	async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+	async fetch(request: Request, env: Env): Promise<Response> {
 		return (
 			(await routeAgentRequest(request, env)) ??
 			new Response("Not found", { status: 404 })
@@ -119,123 +146,254 @@ export default {
 
 </TypeScriptExample>
 
-Update `wrangler.jsonc` to register the agent:
+Here is what each part does:
 
-<WranglerConfig>
+- `Assistant` extends the platform `DurableObject`. Each named instance is one agent, with its own SQLite database.
+- `PiHarness` is the harness. It runs the [Pi](https://pi.dev/) agent loop, stores the transcript in the object's database, and keeps a run going after the object is evicted from memory.
+- `createAI()` from `agents/models/pi-ai` connects Pi to Workers AI. `defaults.model` is the model a new session starts with.
+- `Lifecycle.install(this)` takes over the object's `fetch` and `alarm` handlers, and `.use(this.harness)` adds the harness. Do not define `fetch()` or `alarm()` on the class yourself.
+- `onRequest()` handles HTTP requests that no capability handled. A `POST` sends a prompt and waits for the answer. A `GET` returns the transcript.
+- `routeAgentRequest()` sends requests for `/agents/assistant/:name` to the `Assistant` instance called `:name`. For more information, refer to [Routing](/agents/runtime/routing/).
 
-```jsonc
-{
-	"name": "my-agent",
-	"main": "src/server.ts",
-	"compatibility_date": "$today",
-	"compatibility_flags": ["nodejs_compat"],
-	"durable_objects": {
-		"bindings": [
-			{
-				"name": "CounterAgent",
-				"class_name": "CounterAgent",
-			},
-		],
-	},
-	"migrations": [
-		{
-			"tag": "v1",
-			"new_sqlite_classes": ["CounterAgent"],
-		},
-	],
-}
+Generate types for the `Env` interface:
+
+```sh
+npx wrangler types
 ```
 
-</WranglerConfig>
+## Run the agent locally
 
-## Connect from React
+<Steps>
 
-Replace `src/client.tsx`:
+1. Start the development server:
 
-```tsx title="src/client.tsx"
-import "./styles.css";
-import { createRoot } from "react-dom/client";
-import { useState } from "react";
-import { useAgent } from "agents/react";
-import type { CounterAgent, CounterState } from "./server";
+   ```sh
+   npx wrangler dev
+   ```
 
-export default function App() {
-	const [count, setCount] = useState(0);
+   The `AI` binding always runs remotely, so Wrangler asks you to log in the first time.
 
-	// Connect to the Counter agent
-	const agent = useAgent<CounterAgent, CounterState>({
-		agent: "CounterAgent",
-		onStateUpdate: (state) => setCount(state.count),
-	});
+2. In another terminal, send the agent called `demo` a prompt:
 
-	return (
-		<div style={{ padding: "2rem", fontFamily: "system-ui" }}>
-			<h1>Counter Agent</h1>
-			<p style={{ fontSize: "3rem" }}>{count}</p>
-			<div style={{ display: "flex", gap: "1rem" }}>
-				<button onClick={() => agent.stub.decrement()}>-</button>
-				<button onClick={() => agent.stub.reset()}>Reset</button>
-				<button onClick={() => agent.stub.increment()}>+</button>
-			</div>
-		</div>
-	);
-}
+   ```sh
+   curl -X POST http://localhost:8787/agents/assistant/demo \
+     -d "What is 47 times 19? Reply with the number only."
+   ```
 
-const root = createRoot(document.getElementById("root")!);
-root.render(<App />);
-```
+   ```json output
+   { "status": "done", "text": "893" }
+   ```
 
-Key points:
+   `status` is `done` when the model answered, and `unanswered` when the run failed or was stopped.
 
-- `useAgent` connects to your agent via WebSocket
-- `onStateUpdate` fires whenever the agent's state changes
-- `agent.stub.methodName()` calls methods marked with `@callable()` on your agent
+3. Read the transcript:
 
-## What just happened?
+   ```sh
+   curl http://localhost:8787/agents/assistant/demo
+   ```
 
-When you clicked the button:
+</Steps>
 
-1. **Client** called `agent.stub.increment()` over WebSocket
-2. **Agent** ran `increment()`, updated state with `setState()`
-3. **State** persisted to SQLite automatically
-4. **Broadcast** sent to all connected clients
-5. **React** updated via `onStateUpdate`
+The transcript lives in the `demo` instance's database. A request to `/agents/assistant/another-name` reaches a different agent, with an empty transcript.
 
-```mermaid
-flowchart LR
-    A["Browser<br/>(React)"] <-->|WebSocket| B["Agent<br/>(Counter)"]
-    B --> C["SQLite<br/>(State)"]
-```
+## Give the agent a workspace
 
-### Key concepts
+A [Cloudflare Computer](/agents/tools/filesystem/) `Workspace` is a durable filesystem. It stores its files in the same Durable Object's SQLite database, next to Pi's transcript, so the files survive eviction too.
 
-| Concept              | What it means                                                                                         |
-| -------------------- | ----------------------------------------------------------------------------------------------------- |
-| **Agent instance**   | Each unique name gets its own agent. `CounterAgent:user-123` is separate from `CounterAgent:user-456` |
-| **Persistent state** | State survives restarts, deploys, and hibernation. It is stored in SQLite                             |
-| **Real-time sync**   | All clients connected to the same agent receive state updates instantly                               |
-| **Hibernation**      | When no clients are connected, the agent hibernates (no cost). It wakes on the next request           |
+`createPiTools()` turns the workspace into tools the model can call: `read`, `ls`, `find`, `grep`, `write`, `edit`, and `delete`. Install them in Pi's registry when the harness opens:
 
-## Connect from vanilla JavaScript
-
-If you are not using React:
-
-<TypeScriptExample>
+<TypeScriptExample filename="src/index.ts">
 
 ```ts
-import { AgentClient } from "agents/client";
+// ...
+import { Workspace } from "@cloudflare/computer";
+import { createPiTools } from "@cloudflare/computer/tools/pi-ai";
 
-const agent = new AgentClient({
-	agent: "CounterAgent",
-	name: "my-counter", // optional, defaults to "default"
-	onStateUpdate: (state) => {
-		console.log("New count:", state.count);
+export class Assistant extends DurableObject<Env> {
+	readonly ai = createAI({ binding: this.env.AI });
+	readonly registry = createRegistry();
+
+	// A durable filesystem in the object's SQLite database
+	readonly workspace = new Workspace({ storage: this.ctx.storage });
+
+	readonly harness = new PiHarness({
+		harness: ({ storage, context, onWake }) => {
+			const { tools, execute } = createPiTools({ workspace: this.workspace });
+			this.registry.install({
+				name: "workspace",
+				tools: tools.map((tool) => ({
+					...tool,
+					async execute(args, api, ctx) {
+						const { content, isError } = await execute(
+							{ id: api.callId, name: tool.name, arguments: args },
+							{ abortSignal: ctx.abortSignal },
+						);
+						return { output: content, isError };
+					},
+				})),
+			});
+			const models = createModels();
+			models.setProvider(this.ai.provider);
+			return Harness.open(
+				storage,
+				{ models, registry: this.registry, onWake },
+				context,
+			);
+		},
+		defaults: { model: this.ai("@cf/deepseek-ai/deepseek-v4.1-flash-1017") },
+	});
+
+	// lifecycle and onRequest() are unchanged
+}
+```
+
+</TypeScriptExample>
+
+Ask the agent to use it:
+
+```sh
+curl -X POST http://localhost:8787/agents/assistant/demo \
+  -d "Write a haiku about Durable Objects to haiku.md, then list the files."
+```
+
+Pi calls `write`, then `ls`, and answers with what it found. The file stays in the `demo` agent's workspace for the next prompt. For the other workspace options, such as running JavaScript, refer to [Filesystem tools](/agents/tools/filesystem/).
+
+## Connect over WebSockets
+
+So far you have talked to the agent over HTTP, one request at a time. The [`WebSockets`](/agents/runtime/capabilities/websockets/) capability keeps a connection open, so a browser or another client can send prompts and get replies as they happen. Idle connections hibernate, so an open connection does not keep the object in memory.
+
+Add a [`WebSockets`](/agents/runtime/capabilities/websockets/) field and install it after the harness:
+
+<TypeScriptExample filename="src/index.ts">
+
+```ts
+// ...
+import { WebSockets } from "agents/websockets";
+
+export class Assistant extends DurableObject<Env> {
+	// ai, registry, workspace, and harness are unchanged
+
+	// Clients send prompts and get replies over WebSockets
+	readonly webSockets = new WebSockets({
+		handlers: {
+			onMessage: async (connection, message) => {
+				const { text } = await this.harness.prompt(String(message));
+				connection.send(text ?? "");
+			},
+		},
+	});
+
+	readonly lifecycle = Lifecycle.install(this)
+		.use(this.harness)
+		.use(this.webSockets);
+
+	// onRequest() is unchanged
+}
+```
+
+</TypeScriptExample>
+
+`WebSockets` accepts every WebSocket upgrade. HTTP requests still reach `onRequest()`, so the `curl` commands keep working.
+
+Connect with [`wscat`](https://github.com/websockets/wscat) and type a prompt:
+
+```sh
+npx wscat -c ws://localhost:8787/agents/assistant/demo
+```
+
+```txt output
+Connected (press CTRL+C to quit)
+< {"type":"cf_agent_identity","name":"demo","agent":"assistant"}
+> What is in haiku.md?
+< ...
+```
+
+The first frame is the agent's identity, which clients such as `useAgent` and `AgentClient` read for you. For a React client, refer to the [client SDK](/agents/agent-class/communication-channels/chat/client-sdk/).
+
+Here is the complete agent:
+
+<TypeScriptExample filename="src/index.ts">
+
+```ts
+import { DurableObject } from "cloudflare:workers";
+import { Workspace } from "@cloudflare/computer";
+import { createPiTools } from "@cloudflare/computer/tools/pi-ai";
+import { createModels } from "@earendil-works/pi-ai/models";
+import { createRegistry, Harness } from "@earendil-works/pi-durable";
+import { PiHarness } from "agents/harness/pi";
+import { Lifecycle } from "agents/lifecycle";
+import { createAI } from "agents/models/pi-ai";
+import { routeAgentRequest } from "agents/routing";
+import { WebSockets } from "agents/websockets";
+
+export class Assistant extends DurableObject<Env> {
+	readonly ai = createAI({ binding: this.env.AI });
+	readonly registry = createRegistry();
+
+	// Tools: a durable filesystem in the object's SQLite database
+	readonly workspace = new Workspace({ storage: this.ctx.storage });
+
+	// Harness: the Pi agent loop, with the workspace as its tools
+	readonly harness = new PiHarness({
+		harness: ({ storage, context, onWake }) => {
+			const { tools, execute } = createPiTools({ workspace: this.workspace });
+			this.registry.install({
+				name: "workspace",
+				tools: tools.map((tool) => ({
+					...tool,
+					async execute(args, api, ctx) {
+						const { content, isError } = await execute(
+							{ id: api.callId, name: tool.name, arguments: args },
+							{ abortSignal: ctx.abortSignal },
+						);
+						return { output: content, isError };
+					},
+				})),
+			});
+			const models = createModels();
+			models.setProvider(this.ai.provider);
+			return Harness.open(
+				storage,
+				{ models, registry: this.registry, onWake },
+				context,
+			);
+		},
+		defaults: { model: this.ai("@cf/deepseek-ai/deepseek-v4.1-flash-1017") },
+	});
+
+	// Capability: clients send prompts and get replies over WebSockets
+	readonly webSockets = new WebSockets({
+		handlers: {
+			onMessage: async (connection, message) => {
+				const { text } = await this.harness.prompt(String(message));
+				connection.send(text ?? "");
+			},
+		},
+	});
+
+	// Runtime: the Lifecycle starts the harness and the capabilities, and
+	// handles the object's fetch, alarm, and WebSocket events
+	readonly lifecycle = Lifecycle.install(this)
+		.use(this.harness)
+		.use(this.webSockets);
+
+	async onRequest(request: Request): Promise<Response> {
+		if (request.method !== "POST") {
+			return Response.json(await this.harness.messages());
+		}
+		const { status, text } = await this.harness.prompt(await request.text());
+		return Response.json({ status, text });
+	}
+}
+
+export default {
+	async fetch(request: Request, env: Env): Promise<Response> {
+		return (
+			(await routeAgentRequest(request, env)) ??
+			new Response("Not found", { status: 404 })
+		);
 	},
-});
-
-// Call methods
-await agent.call("increment");
-await agent.call("reset");
+} satisfies ExportedHandler<Env>;
 ```
 
 </TypeScriptExample>
@@ -243,122 +401,16 @@ await agent.call("reset");
 ## Deploy to Cloudflare
 
 ```sh
-npm run deploy
+npx wrangler deploy
 ```
 
-Your agent is now live on Cloudflare's global network, running close to your users.
+Your agent is now running on Cloudflare's global network at `https://my-agent.<YOUR_SUBDOMAIN>.workers.dev/agents/assistant/demo`.
 
-## Troubleshooting
-
-### "Agent not found" or 404 errors
-
-Make sure:
-
-1. Agent class is exported from your server file
-2. `wrangler.jsonc` has the binding and migration
-3. Agent name in client matches the class name (case-insensitive)
-
-### State not syncing
-
-Check that:
-
-1. You are calling `this.setState()`, not mutating `this.state` directly
-2. The `onStateUpdate` callback is wired up in your client
-3. WebSocket connection is established (check browser dev tools)
-
-### "Method X is not callable" errors
-
-Make sure your methods are decorated with `@callable()`:
-
-<TypeScriptExample>
-
-```ts
-import { Agent, callable } from "agents";
-
-export class MyAgent extends Agent {
-	@callable()
-	increment() {
-		// ...
-	}
-}
-```
-
-</TypeScriptExample>
-
-### Type errors with `agent.stub`
-
-Add the agent and state type parameters:
-
-<TypeScriptExample>
-
-```ts
-import { useAgent } from "agents/react";
-import type { CounterAgent, CounterState } from "./server";
-
-// Pass the agent and state types to useAgent
-const agent = useAgent<CounterAgent, CounterState>({
-	agent: "CounterAgent",
-	onStateUpdate: (state) => setCount(state.count),
-});
-
-// Now agent.stub is fully typed
-agent.stub.increment();
-```
-
-</TypeScriptExample>
-
-### `SyntaxError: Invalid or unexpected token` with `@callable()`
-
-If your dev server fails with `SyntaxError: Invalid or unexpected token`, set `"target": "ES2021"` in your `tsconfig.json`. This ensures that Vite's esbuild transpiler downlevels TC39 decorators instead of passing them through as native syntax.
-
-```json
-{
-	"compilerOptions": {
-		"target": "ES2021"
-	}
-}
-```
-
-:::caution
-Do not set `"experimentalDecorators": true` in your `tsconfig.json`. The Agents SDK uses [TC39 standard decorators](https://github.com/tc39/proposal-decorators), not TypeScript legacy decorators. Enabling `experimentalDecorators` applies an incompatible transform that silently breaks `@callable()` at runtime.
-:::
+Anyone who knows that URL can talk to your agent. Before you share it, check who is calling in your Worker. For more information, refer to [Authentication](/agents/runtime/routing/authentication/).
 
 ## Next steps
 
-Now that you have a working agent, explore these topics:
-
-### Common patterns
-
-| Learn how to             | Refer to                                                  |
-| ------------------------ | --------------------------------------------------------- |
-| Add AI/LLM capabilities  | [Using AI models](/agents/api-reference/using-ai-models/) |
-| Expose tools via MCP     | [MCP servers](/agents/api-reference/mcp-agent-api/)       |
-| Run background tasks     | [Schedule tasks](/agents/api-reference/schedule-tasks/)   |
-| Handle emails            | [Email routing](/agents/api-reference/email/)             |
-| Use Cloudflare Workflows | [Run Workflows](/agents/api-reference/run-workflows/)     |
-
-### Explore more
-
-<LinkCard
-	title="State management"
-	href="/agents/api-reference/store-and-sync-state/"
-	description="Deep dive into setState(), initialState, and onStateChanged()."
-/>
-
-<LinkCard
-	title="Client SDK"
-	href="/agents/api-reference/client-sdk/"
-	description="Full useAgent and AgentClient API reference."
-/>
-
-<LinkCard
-	title="Callable methods"
-	href="/agents/api-reference/callable-methods/"
-	description="Expose methods to clients with @callable()."
-/>
-
-<LinkCard
-	title="Schedule tasks"
-	href="/agents/api-reference/schedule-tasks/"
-	description="Run tasks on a delay, schedule, or cron."
-/>
+- [Pi harness](/agents/harnesses/pi/): stream events to clients, work with several sessions, and recover after eviction.
+- [Pi extensions](/agents/harnesses/pi/extensions/): give the model more tools and system prompt sections.
+- [`Scheduler`](/agents/runtime/capabilities/scheduler/): run the agent on a schedule, such as a plan every morning.
+- [Capabilities](/agents/runtime/capabilities/): everything else you can add to the Durable Object.

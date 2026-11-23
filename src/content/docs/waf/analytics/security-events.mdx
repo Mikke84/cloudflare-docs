@@ -2,16 +2,19 @@
 title: Security Events
 pcx_content_type: concept
 description: Review individual security events triggered by WAF rules.
+products:
+  - waf
 sidebar:
   order: 2
+tags:
+  - Logging
+  - SIEM
 ---
 
 import {
-	FeatureTable,
 	GlossaryTooltip,
+	Render,
 	Steps,
-	Tabs,
-	TabItem,
 	DashButton,
 } from "~/components";
 
@@ -32,25 +35,25 @@ Security Events displays information about requests actioned or flagged by Cloud
 
 Available features vary according to your Cloudflare plan:
 
-<FeatureTable id="security.security_events" />
+|  | Free | Pro | Business | Enterprise |
+| - | - | - | - | - |
+| Availability | Yes | Yes | Yes | Yes |
+| Dashboard features | Sampled logs only | All | All | All |
+| Account-level dashboard | No | No | No | Yes |
+| Historical time (data retention) | Up to the last 31 days | Up to the last 31 days | Up to the last 31 days | Up to the last 31 days |
+| Max query window | 30 days | 30 days | 30 days | 31 days |
+| Export report | No | No | Up to 500 events | Up to 500 events |
+| Print report | No | Yes | Yes | Yes |
 
 ## Location in the dashboard
 
 To open Security Events for a given zone:
-
-<Tabs syncKey="dashNewNav"> <TabItem label="New dashboard" icon="rocket">
 
 1. In the Cloudflare dashboard, go to the **Analytics** page.
 
    <DashButton url="/?to=/:account/:zone/security/analytics" />
 
 2. Select the **Events** tab.
-
-</TabItem> <TabItem label="Old dashboard">
-
-- In the Cloudflare dashboard, go to **Security** > **Events**.
-
-</TabItem> </Tabs>
 
 Additionally, Enterprise customers have access to the account-level dashboard:
 
@@ -90,10 +93,7 @@ The available report duration values depend on your Cloudflare plan. Refer to [A
 
 ## Create security rule from current filters
 
-To create a [custom rule](/waf/custom-rules/create-dashboard/) based on your current filters and exclusions:
-
-- Old dashboard: Select **Create custom rule**.
-- New security dashboard: Select **Create custom security rule**.
+To create a [custom rule](/waf/custom-rules/create-dashboard/) based on your current filters and exclusions, select **Create custom security rule**.
 
 ## Events summary
 
@@ -116,7 +116,7 @@ In **Top events by source** you can find details of the traffic flagged or actio
 You can adjust the scope of Security Events to one of the listed source values by selecting **Filter** or **Exclude** when hovering the value.
 
 :::note
-A deleted custom rule or rate limiting rule will show as `Rule unavailable` under **Firewall rules** or **Rate limit rules**. To check the changes made within your Cloudflare account, review your [Audit logs](/fundamentals/account/account-security/review-audit-logs/).
+A deleted custom rule or rate limiting rule will show as `Rule unavailable` under **Custom rules** or **Rate limiting rules**. To check the changes made within your Cloudflare account, review your [Audit logs](/fundamentals/account/account-security/review-audit-logs/).
 :::
 
 ## Sampled logs
@@ -143,8 +143,10 @@ Besides the actions you can select when configuring rules in Cloudflare security
 
 - _Connection Close_
 - _Force Connection Close_
+- _AI Labyrinth Served_
+- _AI Labyrinth Crawls_
 
-For details on these actions, refer to [HTTP DDoS Attack Protection parameters](/ddos-protection/managed-rulesets/http/override-parameters/#action).
+For details on _Connection Close_ and _Force Connection Close_, refer to [HTTP DDoS Attack Protection parameters](/ddos-protection/managed-rulesets/http/override-parameters/#action). For details on _AI Labyrinth Served_ and _AI Labyrinth Crawls_, refer to [AI Labyrinth](/bots/additional-configurations/ai-labyrinth/#ai-labyrinth-in-security-analytics).
 
 The [_Managed Challenge_](/cloudflare-challenges/challenge-types/challenge-pages/#managed-challenge) action that may appear in **Sampled logs** is available in the following security features and products: WAF custom rules, rate limiting rules, Bot Fight Mode, IP Access rules, User Agent Blocking rules, and firewall rules (deprecated).
 
@@ -164,10 +166,7 @@ For example, after adding a filter for `Action equals Managed Challenge` and set
 
 ## Print or download PDF report
 
-To print or download a snapshot report:
-
-- Old dashboard: Select **Print report**.
-- New security dashboard: Select the three dots > **Print report**.
+To print or download a snapshot report, select the three dots > **Print report**.
 
 Your web browser's printing interface will present you with options for printing or downloading the PDF report.
 
@@ -177,8 +176,24 @@ The generated report will reflect all applied filters.
 
 Security Events currently has these limitations:
 
-- Security Events may use sampled data to improve performance. If your search uses sampled data, Security Events might not display all events and filters might not return the expected results. To display more events, select a smaller time frame (a narrower time range reduces the volume of data, which reduces or eliminates sampling).
-
+- Security Events may use sampled data to improve performance. Refer to [Sampling](#sampling) for more information.
 - The Cloudflare dashboard may show an inaccurate number of events per page. Data queries are highly optimized, but this means that pagination may not always work because the source data may have been sampled. The GraphQL Analytics API does not have this pagination issue.
-
 - Triggered [OWASP rules](/waf/managed-rules/reference/owasp-core-ruleset/) appear in the Security Events page under **Additional logs**, but they are not included in exported JSON files.
+
+## Sampling
+
+Security Events may use [sampled data](/analytics/graphql-api/sampling/). If your search uses sampled data, Security Events might not display all events and filters might not return the expected results. To display more events, select a smaller time frame (a narrower time range reduces the volume of data, which reduces or eliminates sampling).
+
+## Query using GraphQL
+
+If you query Security Events data through the [GraphQL Analytics API](/analytics/graphql-api/), the underlying dataset is `firewallEventsAdaptive`. For more information, refer to [Datasets (tables)](/analytics/graphql-api/features/data-sets/).
+
+For more information on querying the `firewallEventsAdaptive` dataset, refer to [Querying Firewall Events with GraphQL](/analytics/graphql-api/tutorials/querying-firewall-events/).
+
+## Limits
+
+The retention and query window for the `firewallEventsAdaptive` dataset differ from the datasets that power [Security Analytics](/waf/analytics/security-analytics/#sampling).
+
+The following tables show the different limits per Cloudflare plan:
+
+<Render file="analytics-dataset-limits" product="waf" />

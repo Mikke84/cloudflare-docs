@@ -5,6 +5,8 @@ slug: realtime/realtimekit/recording-guide/interactive-recording
 description: >-
   Learn how to enable interactive recording with RealtimeKit's capabilities. Follow our
   guide for effective configuration and management.
+products:
+  - realtime
 ---
 
 RealtimeKit's interactive recording feature allows you to add timed metadata to your video stream. Timed metadata serves as cue points for clients to display information and trigger time-aligned actions. The metadata is available to clients in the form of [ID3](https://en.wikipedia.org/wiki/ID3) tags on the playback timeline.
@@ -27,7 +29,7 @@ To add interactivity to your RealtimeKit recording, perform the following steps:
 
 This parameter enables you to add timed metadata to your recordings, which is made available to clients in HLS format via ID3 tags. The output files are packaged as a tar file.
 
-2. In [RealtimeKitClient](https://docs.realtime.cloudflare.com/web-core/reference/RealtimeKitClient), call the `broadcastMessage` method with the parameters, `ID3` (as a string) and `yourData` (the data you want to send as timed metadata) on the [participants](https://docs.realtime.cloudflare.com/web-core/reference/RealtimeKitClient#module_RealtimeKitClient+participants) object.
+2. In [RealtimeKitClient](/realtime/realtimekit/humans/core/api-reference/realtimekitclient/), call the `broadcastMessage` method with the parameters, `ID3` (as a string) and `yourData` (the data you want to send as timed metadata) on the [participants](/realtime/realtimekit/humans/core/api-reference/realtimekitclient/#module_RealtimeKitClient+participants) object.
 
 ```ts
 meeting.participants.broadcastMessage(“ID3Data”, yourData);

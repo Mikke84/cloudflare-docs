@@ -1,20 +1,23 @@
 ---
 pcx_content_type: how-to
-title: /snapshot - Take a webpage snapshot
+title: /snapshot - Capture multiple page formats
+description: Capture HTML, screenshots, Markdown, PDFs, links, scraped elements, extracted JSON, and the accessibility tree from a webpage in a single Browser Run /snapshot request.
 sidebar:
   order: 6
+products:
+  - browser-run
 ---
 
 import { Tabs, TabItem, Render } from "~/components";
 
-The `/snapshot` endpoint captures both the HTML content and a screenshot of the webpage in one request. It returns the HTML as a text string and the screenshot as a Base64-encoded image.
+Browser Run provides individual endpoints for [HTML content](/browser-run/quick-actions/content-endpoint/), [screenshots](/browser-run/quick-actions/screenshot-endpoint/), [Markdown](/browser-run/quick-actions/markdown-endpoint/), and more. The `/snapshot` endpoint combines multiple formats into a single request, so you do not need to call each endpoint separately. By default, it returns HTML content and a screenshot. You can use the `formats` parameter to customize which formats are included, such as adding a PDF, extracted JSON, or the accessibility tree to the response.
 
 <Render file="rest-api-token-permissions" product="browser-run" />
 
 ## Endpoint
 
 ```txt
-https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-rendering/snapshot
+https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-run/snapshot
 ```
 
 ## Required fields
@@ -29,6 +32,7 @@ You must provide either `url` or `html`:
 - Capture both the rendered HTML and a visual screenshot in a single API call
 - Archive pages with visual and structural data together
 - Build monitoring tools that compare visual and DOM differences over time
+- Save a page as a PDF together with the data extracted from it
 
 ## Basic usage
 
@@ -42,7 +46,7 @@ You must provide either `url` or `html`:
 4. Take a screenshot.
 
 ```bash
-curl -X POST 'https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-rendering/snapshot' \
+curl -X POST 'https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-run/snapshot' \
   -H 'Authorization: Bearer <apiToken>' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -81,6 +85,23 @@ const snapshot = await client.browserRendering.snapshot.create({
 console.log(snapshot.content);
 ```
 
+</TabItem> <TabItem label="Workers Bindings">
+
+```typescript
+interface Env {
+	BROWSER: BrowserRun;
+}
+
+export default {
+	async fetch(request, env): Promise<Response> {
+		return await env.BROWSER.quickAction("snapshot", {
+			url: "https://example.com/",
+			addScriptTag: [{ content: 'document.body.innerHTML = "Snapshot Page";' }],
+		});
+	},
+} satisfies ExportedHandler<Env>;
+```
+
 </TabItem> </Tabs>
 
 ## Advanced usage
@@ -91,7 +112,7 @@ Visit the [Browser Run API reference](/api/resources/browser_rendering/subresour
 
 ### Create a snapshot from custom HTML
 
-The `html` property in the JSON payload, it sets the html to `<html><body>Advanced Snapshot</body></html>` then does the following steps:
+This example uses the `html` property to render `<html><body>Advanced Snapshot</body></html>` and does the following:
 
 1. Disable JavaScript.
 2. Sets the screenshot to `fullPage`.
@@ -100,7 +121,7 @@ The `html` property in the JSON payload, it sets the html to `<html><body>Advanc
 5. Returns the rendered HTML content and a base-64 encoded screenshot of the page.
 
 ```bash
-curl -X POST 'https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-rendering/snapshot' \
+curl -X POST 'https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-run/snapshot' \
   -H 'Authorization: Bearer <apiToken>' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -124,8 +145,197 @@ curl -X POST 'https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-
 {
 	"success": true,
 	"result": {
-		"screenshot": "AdvancedBase64Screenshot",
+		"screenshot": "Base64EncodedScreenshotString",
 		"content": "<html><body>Advanced Snapshot</body></html>"
+	}
+}
+```
+
+### Choose which formats to return
+
+Use the `formats` parameter to control which representations of the page are included in the response. Accepted values are `"content"`, `"screenshot"`, `"markdown"`, `"accessibilityTree"`, `"pdf"`, `"links"`, `"scrape"`, and `"json"`. If omitted, the default is `["content", "screenshot"]`.
+
+| Format              | Result field               | Options it uses                                     | Standalone endpoint                                                             |
+| ------------------- | -------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `content`           | `result.content`           | —                                                   | [`/content`](/browser-run/quick-actions/content-endpoint/)                      |
+| `screenshot`        | `result.screenshot`        | `screenshotOptions`, `selector`, `scrollPage`       | [`/screenshot`](/browser-run/quick-actions/screenshot-endpoint/)                |
+| `markdown`          | `result.markdown`          | —                                                   | [`/markdown`](/browser-run/quick-actions/markdown-endpoint/)                    |
+| `accessibilityTree` | `result.accessibilityTree` | `interestingOnly`, `root`                           | [`/accessibilityTree`](/browser-run/quick-actions/accessibility-tree-endpoint/) |
+| `pdf`               | `result.pdf`               | `pdfOptions`                                        | [`/pdf`](/browser-run/quick-actions/pdf-endpoint/)                              |
+| `links`             | `result.links`             | `visibleLinksOnly`, `excludeExternalLinks`          | [`/links`](/browser-run/quick-actions/links-endpoint/)                          |
+| `scrape`            | `result.scrape`            | `elements` (required)                               | [`/scrape`](/browser-run/quick-actions/scrape-endpoint/)                        |
+| `json`              | `result.json`              | `prompt` (required), `response_format`, `custom_ai` | [`/json`](/browser-run/quick-actions/json-endpoint/)                            |
+
+
+You must request at least two distinct formats. If you only need a single format, use the corresponding single-format endpoint instead.
+
+:::note[Workers AI usage]
+The `json` format uses [Workers AI](/workers-ai/) to extract data, which incurs usage on Workers AI. For a JSON snapshot, one `actionTimeout` budget (default 60 seconds, maximum 120 seconds) covers navigation, captures, retries, and the AI request.
+:::
+
+Formats are captured in a fixed order rather than the order of the `formats` array, and a live page can change between captures. If any requested format fails, the whole request fails.
+
+The following example requests a screenshot, Markdown, and the accessibility tree in one call:
+
+<Tabs syncKey="workersExamples"> <TabItem label="curl">
+
+```bash
+curl -X POST 'https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-run/snapshot' \
+  -H 'Authorization: Bearer <apiToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "url": "https://example.com/",
+    "formats": ["screenshot", "markdown", "accessibilityTree"]
+  }'
+```
+
+```json output
+{
+	"success": true,
+	"result": {
+		"accessibilityTree": {
+			"role": "RootWebArea",
+			"name": "Example Domain",
+			"children": [
+				{
+					"role": "heading",
+					"name": "Example Domain",
+					"level": 1
+				},
+				{
+					"role": "StaticText",
+					"name": "This domain is for use in documentation examples without needing permission. Avoid use in operations."
+				},
+				{
+					"role": "link",
+					"name": "Learn more"
+				}
+			]
+		},
+		"screenshot": "iVBORw0KGgoAAAANSUhEUgAAB4AAAAQ4CAIAAAB...",
+		"markdown": "# Example Domain\n\nThis domain is for use in documentation examples without needing permission. Avoid use in operations.\n\n[Learn more](https://iana.org/domains/example)"
+	},
+	"meta": {
+		"status": 200,
+		"title": "Example Domain"
+	}
+}
+```
+
+</TabItem> <TabItem label="TypeScript SDK">
+
+```typescript
+import Cloudflare from "cloudflare";
+
+const client = new Cloudflare({
+	apiToken: process.env["CLOUDFLARE_API_TOKEN"],
+});
+
+const snapshot = await client.browserRendering.snapshot.create({
+	account_id: process.env["CLOUDFLARE_ACCOUNT_ID"],
+	url: "https://example.com/",
+	formats: ["screenshot", "markdown", "accessibilityTree"],
+});
+
+console.log(snapshot.markdown);
+console.log(snapshot.accessibilityTree);
+```
+
+</TabItem> <TabItem label="Workers Bindings">
+
+```typescript
+interface Env {
+	BROWSER: BrowserRun;
+}
+
+export default {
+	async fetch(request, env): Promise<Response> {
+		return await env.BROWSER.quickAction("snapshot", {
+			url: "https://example.com/",
+			formats: ["screenshot", "markdown", "accessibilityTree"],
+		});
+	},
+} satisfies ExportedHandler<Env>;
+```
+
+</TabItem> </Tabs>
+
+### Capture a PDF, links, and scraped elements
+
+This example returns a PDF of the page, the links it contains, and the text of each paragraph. It does not use Workers AI.
+
+```bash
+curl -X POST 'https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-run/snapshot' \
+  -H 'Authorization: Bearer <apiToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "url": "https://example.com/",
+    "formats": ["pdf", "links", "scrape"],
+    "elements": [{ "selector": "p" }],
+    "pdfOptions": {
+      "format": "a4"
+    }
+  }'
+```
+
+```json output collapse={6-21}
+{
+	"success": true,
+	"result": {
+		"pdf": "JVBERi0xLjQK...",
+		"links": ["https://iana.org/help/example-domains"],
+		"scrape": [
+			{
+				"selector": "p",
+				"results": [
+					{
+						"attributes": [{ "name": "lang", "value": "en" }],
+						"html": "This domain is for use in documentation examples...",
+						"text": "This domain is for use in documentation examples...",
+						"left": 752,
+						"top": 286,
+						"height": 102,
+						"width": 416
+					}
+				]
+			}
+		]
+	},
+	"meta": {
+		"status": 200,
+		"title": "Example Domain"
+	}
+}
+```
+
+### Extract JSON from the page
+
+This example captures the page HTML and uses Workers AI to extract structured data from it in the same request. The `prompt` describes the shape you want back.
+
+```bash
+curl -X POST 'https://api.cloudflare.com/client/v4/accounts/<accountId>/browser-run/snapshot' \
+  -H 'Authorization: Bearer <apiToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "url": "https://example.com/",
+    "formats": ["content", "json"],
+    "prompt": "Return {\"title\": string, \"paragraphCount\": number} for the page."
+  }'
+```
+
+```json output
+{
+	"success": true,
+	"result": {
+		"content": "<!DOCTYPE html><html>...</html>",
+		"json": {
+			"title": "Example Domain",
+			"paragraphCount": 6
+		}
+	},
+	"meta": {
+		"status": 200,
+		"title": "Example Domain"
 	}
 }
 ```

@@ -1,6 +1,13 @@
 ---
-import { Code, Tabs, TabItem } from "~/components";
-import type { ModelExample, CodeSnippet } from "~/schemas/catalog-models";
+/**
+ * ExampleCard — renders one example: a code snippet block (single `<Code>` or
+ * `<Tabs>` of languages) plus its rendered output (text / media) and/or raw
+ * JSON response.
+ */
+import { Code } from "~/components/ui/code";
+import { Tabs, TabItem } from "~/components/ui/tabs";
+import OutputBody from "~/components/models/OutputBody.astro";
+import type { ModelExample, CodeSnippet } from "~/util/models";
 
 interface Props {
 	example: ModelExample;
@@ -13,19 +20,76 @@ const { example, fallbackSnippets, layout = "side-by-side" } = Astro.props;
 const snippets = example.code_snippets ?? fallbackSnippets ?? [];
 const hasSnippets = snippets.length > 0;
 
-const rawImageUrl = example.output?.image ?? example.output?.image_url;
+const output = example.output;
+
+// Text output (e.g. LLM responses): { text: "..." } or { response: "..." }.
+// Some examples provide streaming-style chunks as a string array.
+function toTextOutput(value: unknown): string | undefined {
+	if (typeof value === "string") return value;
+	if (Array.isArray(value)) {
+		return value.filter((v): v is string => typeof v === "string").join("");
+	}
+	return undefined;
+}
+
+const textOutput = toTextOutput(output?.text ?? output?.response);
+
+const rawImageUrl = output?.image ?? output?.image_url;
 const imageUrl = typeof rawImageUrl === "string" ? rawImageUrl : undefined;
-const hasImage = !!imageUrl;
 
-const rawVideoUrl = example.output?.video ?? example.output?.video_url;
+// Some models return an `images` array of URLs.
+const rawImages = output?.images;
+const imageUrls = Array.isArray(rawImages)
+	? rawImages.filter((v): v is string => typeof v === "string")
+	: [];
+
+const rawVideoUrl = output?.video ?? output?.video_url;
 const videoUrl = typeof rawVideoUrl === "string" ? rawVideoUrl : undefined;
-const hasVideo = !!videoUrl;
 
-const rawAudioUrl = example.output?.audio ?? example.output?.audio_url;
+const rawAudioUrl = output?.audio ?? output?.audio_url;
 const audioUrl = typeof rawAudioUrl === "string" ? rawAudioUrl : undefined;
-const hasAudio = !!audioUrl;
 
+const hasImage = !!imageUrl || imageUrls.length > 0;
+const hasVideo = !!videoUrl;
+const hasAudio = !!audioUrl;
+const hasText = !!textOutput;
 const hasMedia = hasImage || hasVideo || hasAudio;
+
+// The Output tab has renderable content if we detected any known shape above.
+const hasOutput = hasText || hasMedia;
+const hasRawResponse = !!example.raw_response;
+const hasResponse = hasOutput || hasRawResponse;
+
+const MAX_STREAM_ITEMS = 3;
+const MAX_RAW_JSON_CHARS = 8000;
+
+/**
+ * Safely stringify a raw value by truncating any root array and trimming the
+ * resulting string. Raw responses can be huge (hundreds of streamed SSE
+ * chunks), so this keeps page size reasonable for readers and agents.
+ */
+function safeStringify(raw: unknown): string {
+	let value: unknown = raw;
+	if (Array.isArray(value) && value.length > MAX_STREAM_ITEMS) {
+		const omitted = value.length - MAX_STREAM_ITEMS;
+		value = [
+			...value.slice(0, MAX_STREAM_ITEMS - 1),
+			`... ${omitted} more chunks omitted ...`,
+			value[value.length - 1],
+		];
+	}
+	const json = JSON.stringify(value, null, 2);
+	return json.length > MAX_RAW_JSON_CHARS
+		? `${json.slice(0, MAX_RAW_JSON_CHARS)}\n... response truncated ...`
+		: json;
+}
+
+const safeResponse = hasRawResponse ? safeStringify(example.raw_response) : "";
+
+// Only enable the side-by-side layout when a code block and renderable media
+// are both present — text-only or JSON-only responses stack better vertically.
+const sideBySide =
+	layout === "side-by-side" && hasSnippets && hasResponse && hasMedia;
 
 const languageMap: Record<string, string> = {
 	typescript: "ts",
@@ -46,7 +110,10 @@ const displayNames: Record<string, string> = {
 	bash: "Bash",
 };
 
-function getLang(label: string): string {
+// Returns a Shiki language id. Cast to `any` at call sites because Astro's
+// `Code` types `lang` as the literal `CodeLanguage` union, while these labels
+// are resolved dynamically from the catalog data.
+function getLang(label: string): any {
 	return languageMap[label] ?? languageMap[label.toLowerCase()] ?? "txt";
 }
 
@@ -55,91 +122,63 @@ function getLabel(label: string): string {
 }
 ---
 
-<div
-	class:list={[
-		"example-card",
-		{ "side-by-side": layout === "side-by-side" && hasMedia && hasSnippets },
-	]}
->
-	{
-		hasSnippets && (
-			<div class="example-code">
-				{snippets.length === 1 ? (
-					<Code code={snippets[0].code} lang={getLang(snippets[0].label)} />
-				) : (
-					<Tabs>
-						{snippets.map((snippet) => (
-							<TabItem label={getLabel(snippet.label)}>
-								<Code code={snippet.code} lang={getLang(snippet.label)} />
-							</TabItem>
-						))}
-					</Tabs>
-				)}
-			</div>
-		)
-	}
-
-	{
-		hasMedia && (
-			<div class="example-output">
-				<span class="example-output-label">
-					Response
-					<span class="example-status-badge">200</span>
-				</span>
-				{hasImage && (
-					<img src={imageUrl} alt={example.name} loading="lazy" />
-				)}
-				{hasVideo && (
-					<video src={videoUrl} controls preload="metadata">
-						<track kind="captions" />
-					</video>
-				)}
-				{hasAudio && (
-					<audio src={audioUrl} controls preload="metadata">
-						<track kind="captions" />
-					</audio>
-				)}
-			</div>
-		)
-	}
-
-	{
-		!hasMedia && !hasSnippets && example.output && (
-			<Tabs>
-				<TabItem label="Input">
-					<Code code={JSON.stringify(example.input, null, 4)} lang="json" />
-				</TabItem>
-				<TabItem label="Output">
-					<Code code={JSON.stringify(example.output, null, 4)} lang="json" />
-				</TabItem>
-			</Tabs>
-		)
-	}
-
-	{
-		!hasMedia && !hasSnippets && !example.output && example.input && (
-			<Code code={JSON.stringify(example.input, null, 4)} lang="json" />
-		)
-	}
-
-	{
-		!hasMedia && hasSnippets && example.output && (
-			<details class="example-io">
-				<summary>Input / Output JSON</summary>
+<div class:list={["example-card", { "side-by-side": sideBySide }]}>
+	{hasSnippets && (
+		<div class="example-code">
+			{snippets.length === 1 ? (
+				<Code code={snippets[0].code} lang={getLang(snippets[0].label)} />
+			) : (
 				<Tabs>
-					<TabItem label="Input">
-						<Code code={JSON.stringify(example.input, null, 4)} lang="json" />
-					</TabItem>
+					{snippets.map((snippet) => (
+						<TabItem label={getLabel(snippet.label)}>
+							<Code code={snippet.code} lang={getLang(snippet.label)} />
+						</TabItem>
+					))}
+				</Tabs>
+			)}
+		</div>
+	)}
+
+	{hasResponse && (
+		<div class="example-response">
+			{hasOutput && hasRawResponse ? (
+				<Tabs>
 					<TabItem label="Output">
-						<Code
-							code={JSON.stringify(example.output, null, 4)}
-							lang="json"
+						<OutputBody
+							alt={example.name}
+							textOutput={textOutput}
+							imageUrl={imageUrl}
+							imageUrls={imageUrls}
+							videoUrl={videoUrl}
+							audioUrl={audioUrl}
 						/>
 					</TabItem>
+					<TabItem label="Raw response">
+						<div class="example-raw-response">
+							<Code code={safeResponse} lang="json" />
+						</div>
+					</TabItem>
 				</Tabs>
-			</details>
-		)
-	}
+			) : hasOutput ? (
+				<OutputBody
+					alt={example.name}
+					textOutput={textOutput}
+					imageUrl={imageUrl}
+					imageUrls={imageUrls}
+					videoUrl={videoUrl}
+					audioUrl={audioUrl}
+				/>
+			) : (
+				<div class="example-raw-response">
+					<Code code={safeResponse} lang="json" />
+				</div>
+			)}
+		</div>
+	)}
+
+	{!hasResponse && !hasSnippets && example.input && (
+		<Code code={JSON.stringify(example.input, null, 4)} lang="json" />
+	)}
 </div>
 
 <style>
@@ -170,89 +209,23 @@ function getLabel(label: string): string {
 		flex-direction: column;
 	}
 
-	/* stretch the tabs element and its active panel */
-	.example-card.side-by-side .example-code :global(starlight-tabs) {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.example-card.side-by-side
-		.example-code
-		:global(starlight-tabs > [role="tabpanel"]:not([hidden])) {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.example-card.side-by-side .example-code :global(.expressive-code) {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.example-card.side-by-side .example-code :global(.expressive-code figure) {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.example-card.side-by-side .example-code :global(.expressive-code pre) {
-		flex: 1;
-		overflow: auto;
-	}
-
-	.example-output {
+	.example-response {
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
 		margin-top: 0;
+		min-width: 0;
 	}
 
-	.example-card.side-by-side .example-output {
+	.example-card.side-by-side .example-response {
 		position: sticky;
 		top: 5rem;
 		align-self: start;
 	}
 
-	.example-output-label {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		height: 1.875rem; /* matches starlight tab bar height (~30px) */
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: var(--sl-color-gray-10);
-		border-bottom: 2px solid var(--sl-color-gray-5);
-	}
-
-	.example-status-badge {
-		font-size: 0.75rem;
-		font-weight: 700;
-		font-family: var(--sl-font-mono);
-		color: var(--sl-color-green);
-		border: 1px solid var(--sl-color-green);
-		border-radius: 0.25rem;
-		padding: 0 0.3rem;
-		line-height: 1.4;
-	}
-
-	.example-output img,
-	.example-output video {
-		width: 100%;
-		border-radius: 0.5rem;
-		border: 1px solid var(--sl-color-gray-5);
-	}
-
-	.example-output audio {
-		width: 100%;
-	}
-
-	.example-io {
-		grid-column: 1 / -1;
+	/* Cap raw response JSON so the two tabs render at a similar size. */
+	.example-raw-response :global(pre) {
+		max-height: 32rem;
+		overflow: auto;
 	}
 </style>

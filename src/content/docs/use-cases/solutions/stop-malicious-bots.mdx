@@ -7,12 +7,21 @@ products:
   - bots
   - turnstile
 sidebar:
-  label: Block bots (Free, Pro, Business)
+  label: Block bots
 ---
 
-import { Tabs, TabItem, Steps, Render, DashButton } from "~/components";
+import { Steps, Render, DashButton } from "~/components";
 
-The right defense against malicious bot traffic depends on the traffic patterns on your site and your plan. This guide covers a layered approach using [Cloudflare Bots](/bots/), [Cloudflare Application Security](/waf/) (also known as Web Application Firewall or WAF), and [Turnstile](/turnstile/), from baseline protection to targeted custom rules. The core workflow uses features on Free, Pro, and Business plans, with callouts for Enterprise options. Most settings in this guide are configured per domain. [Select a domain](https://dash.cloudflare.com/) in the Cloudflare dashboard before following the steps below.
+The right defense against malicious bot traffic depends on the traffic patterns on your site and your plan. This guide covers a layered approach using [Cloudflare Bots](/bots/), [Cloudflare Application Security](/waf/) (also known as Web Application Firewall or WAF), and [Turnstile](/turnstile/), from baseline protection to targeted custom rules. The core workflow uses features on Free, Pro, and Business plans, with callouts for Enterprise options.
+
+<Render
+	file="domain-scope-note-with-exception"
+	product="use-cases"
+	params={{
+		exception:
+			"Turnstile is the exception: widgets are configured at the account level.",
+	}}
+/>
 
 ## Review your bot traffic
 
@@ -26,23 +35,11 @@ Before you change any bot settings, review your traffic data to understand what 
 Bot score distribution data and detailed bot analytics are available on Business and Enterprise plans. Free and Pro plan users can review basic security metrics through [Security Events](/waf/analytics/security-events/). For full bot analytics capabilities, refer to [Bot Analytics](/bots/bot-analytics/).
 :::
 
-<Tabs syncKey="dashNewNav">
-<TabItem label="New dashboard" icon="rocket">
-
 1. In the Cloudflare dashboard, go to the **Analytics** page.
 
    <DashButton url="/?to=/:account/:zone/security/analytics" />
 
 2. Select the **Bot analysis** tab.
-
-</TabItem>
-<TabItem label="Old dashboard">
-
-1. Log in to the [Cloudflare dashboard](https://dash.cloudflare.com/login) and select your account and domain.
-2. Go to **Security** > **Bots**.
-
-</TabItem>
-</Tabs>
 
 Review the following:
 
@@ -52,12 +49,7 @@ Review the following:
 
 ### Understand bot categories
 
-Cloudflare classifies bot traffic into categories based on bot scores and verification status:
-
-- **Verified bots**: Crawlers and services that Cloudflare has confirmed as legitimate, such as Googlebot, Bingbot, and uptime monitors. Cloudflare maintains a [verified bot list](/bots/concepts/bot/verified-bots/policy/) with strict requirements.
-- **Automated** (score 1): Cloudflare is quite certain the request is automated.
-- **Likely automated** (scores 2-29): Probably a bot. This category and Automated are your primary targets, including scrapers, credential stuffing tools, and spam submitters.
-- **Likely human** (scores 30-99): These requests appear to come from real users. Do not challenge or block this traffic.
+<Render file="bot-score-categories" product="bots" />
 
 ## Block automated traffic with Bot Fight Mode
 
@@ -81,7 +73,11 @@ For more details, refer to [Bot Fight Mode considerations](/bots/get-started/bot
 
 ### Enable Super Bot Fight Mode (Pro, Business, and Enterprise)
 
-Super Bot Fight Mode adds verified bot allowlisting, per-category actions, static resource protection, and JavaScript detections. If Bot Fight Mode is currently active on your domain, disable it before enabling Super Bot Fight Mode.
+Super Bot Fight Mode adds verified bot allowlisting, per-category actions, static resource protection, and JavaScript detections.
+
+<Render file="sbfm-upgrade" product="bots" />
+
+<Render file="enable-sbfm" product="bots" />
 
 :::note[Plan availability]
 Super Bot Fight Mode is available on Pro, Business, and Enterprise plans. Free plan users can use Bot Fight Mode for baseline protection. Enterprise customers who need machine learning-based bot scoring and custom allow/block rules can add [Bot Management](/bots/plans/bm-subscription/).
@@ -90,8 +86,6 @@ Super Bot Fight Mode is available on Pro, Business, and Enterprise plans. Free p
 :::caution
 If your organization uses [Cloudflare Tunnel](/cloudflare-one/networks/connectors/cloudflare-tunnel/), keep **Definitely Automated** set to **Allow** in Super Bot Fight Mode. Otherwise, tunnels might fail with a `websocket: bad handshake` error.
 :::
-
-For full details and setup instructions, refer to [Super Bot Fight Mode](/bots/get-started/super-bot-fight-mode/).
 
 ## Protect forms from automated abuse
 
@@ -164,9 +158,6 @@ Rules that use counting expressions with response codes (such as counting only `
 
 **Short-window rule:** Challenge an IP that sends too many failed login requests in a short window.
 
-<Tabs syncKey="dashNewNav">
-<TabItem label="New dashboard" icon="rocket">
-
 <Steps>
 
 1. In the Cloudflare dashboard, go to **Security** > **Security rules**.
@@ -184,31 +175,7 @@ Rules that use counting expressions with response codes (such as counting only `
 
 </Steps>
 
-</TabItem>
-<TabItem label="Old dashboard">
-
-<Steps>
-
-1. Log in to the [Cloudflare dashboard](https://dash.cloudflare.com), and select your account and domain.
-2. Go to **Security** > **WAF** > **Rate limiting rules**.
-3. Select **Create rule**.
-4. Enter a descriptive name in **Rule name**.
-5. Under **If incoming requests match**, select **Edit expression** and enter: `http.request.uri.path eq "/login" and http.request.method eq "POST"`
-6. Under **With the same characteristics**, select **IP**.
-7. Enable **Use custom counting expression** and enter: `http.request.uri.path eq "/login" and http.request.method eq "POST" and http.response.code in {401 403}`
-8. Under **When rate exceeds**, enter `4` requests per `1 minute`.
-9. Under **Then take action**, select _Managed Challenge_.
-10. Select **Deploy**.
-
-</Steps>
-
-</TabItem>
-</Tabs>
-
 **Long-window rule:** Block an IP that accumulates failed login attempts over a longer period.
-
-<Tabs syncKey="dashNewNav">
-<TabItem label="New dashboard" icon="rocket">
 
 <Steps>
 
@@ -226,27 +193,6 @@ Rules that use counting expressions with response codes (such as counting only `
 9. Select **Deploy**.
 
 </Steps>
-
-</TabItem>
-<TabItem label="Old dashboard">
-
-<Steps>
-
-1. Log in to the [Cloudflare dashboard](https://dash.cloudflare.com), and select your account and domain.
-2. Go to **Security** > **WAF** > **Rate limiting rules**.
-3. Select **Create rule**.
-4. Enter a descriptive name in **Rule name**.
-5. Under **If incoming requests match**, select **Edit expression** and enter: `http.request.uri.path eq "/login" and http.request.method eq "POST"`
-6. Under **With the same characteristics**, select **IP**.
-7. Enable **Use custom counting expression** and enter: `http.request.uri.path eq "/login" and http.request.method eq "POST" and http.response.code in {401 403}`
-8. Under **When rate exceeds**, enter `20` requests per `1 hour`.
-9. Under **Then take action**, select _Block_ with a duration of `1 day`.
-10. Select **Deploy**.
-
-</Steps>
-
-</TabItem>
-</Tabs>
 
 This pattern uses a counting expression that only counts `POST` requests returning authentication failure codes. Legitimate users who log in successfully on the first attempt never trigger the rule. Review the results in [Security Events](/waf/analytics/security-events/) to confirm the thresholds are not catching legitimate users.
 
@@ -270,9 +216,6 @@ If the built-in settings do not cover your needs, create custom rules. Start by 
 
 Navigate to custom rules, then create both rules:
 
-<Tabs syncKey="dashNewNav">
-<TabItem label="New dashboard" icon="rocket">
-
 <Steps>
 
 1. In the Cloudflare dashboard, go to **Security** > **Security rules**.
@@ -282,20 +225,6 @@ Navigate to custom rules, then create both rules:
 2. Select **Create rule** > **Custom rules**.
 
 </Steps>
-
-</TabItem>
-<TabItem label="Old dashboard">
-
-<Steps>
-
-1. Log in to the [Cloudflare dashboard](https://dash.cloudflare.com), and select your account and domain.
-2. Go to **Security** > **WAF** > **Custom rules**.
-3. Select **Create rule**.
-
-</Steps>
-
-</TabItem>
-</Tabs>
 
 **First, create a verified bot exception:**
 
@@ -339,9 +268,6 @@ The following example creates a rate limiting rule for a checkout endpoint. Adju
 Available periods, actions, and counting options vary by plan. The example below uses a 1-minute period with Managed Challenge. Refer to [Rate limiting rules availability](/waf/rate-limiting-rules/#availability) for your plan's options.
 :::
 
-<Tabs syncKey="dashNewNav">
-<TabItem label="New dashboard" icon="rocket">
-
 <Steps>
 
 1. In the Cloudflare dashboard, go to **Security** > **Security rules**.
@@ -358,27 +284,6 @@ Available periods, actions, and counting options vary by plan. The example below
 9. Review the results in [Security Events](/waf/analytics/security-events/). If the rule matches only bot traffic, edit the rule and change the action to _Block_ if needed.
 
 </Steps>
-
-</TabItem>
-<TabItem label="Old dashboard">
-
-<Steps>
-
-1. Log in to the [Cloudflare dashboard](https://dash.cloudflare.com), and select your account and domain.
-2. Go to **Security** > **WAF** > **Rate limiting rules**.
-3. Select **Create rule**.
-4. Enter a descriptive name in **Rule name**.
-5. Under **If incoming requests match**, select **Edit expression** and enter: `http.request.uri.path eq "/api/checkout" and http.request.method eq "POST"`
-6. Under **With the same characteristics**, select **IP**.
-7. Under **When rate exceeds**, enter `10` requests per `1 minute`.
-8. Under **Then take action**, select _Managed Challenge_.
-9. Select **Deploy**.
-10. Review the results in [Security Events](/waf/analytics/security-events/). If the rule matches only bot traffic, edit the rule and change the action to _Block_ if needed.
-
-</Steps>
-
-</TabItem>
-</Tabs>
 
 For additional patterns and thresholds, refer to [Rate limiting best practices](/waf/rate-limiting-rules/best-practices/).
 
@@ -398,22 +303,11 @@ After you deploy bot protection rules, use [Security Events](/waf/analytics/secu
 
 Security Events displays requests that Cloudflare security products acted on or flagged, including blocks, challenges, and flags.
 
-<Tabs syncKey="dashNewNav">
-<TabItem label="New dashboard" icon="rocket">
-
 1. In the Cloudflare dashboard, go to the **Analytics** page.
 
    <DashButton url="/?to=/:account/:zone/security/analytics" />
 
 2. Select the **Events** tab.
-
-</TabItem>
-<TabItem label="Old dashboard">
-
-1. In the Cloudflare dashboard, go to **Security** > **Events**.
-
-</TabItem>
-</Tabs>
 
 Review the **Sampled logs** to inspect individual requests. Each log entry shows the action taken, the rule that triggered, the source IP, user agent, URI path, and country. Available dashboard sections vary by plan. Refer to [Security Events availability](/waf/analytics/security-events/#availability) for your plan's features.
 
@@ -459,9 +353,6 @@ For details on Skip action configuration, refer to [Configure a rule with the Sk
 
 Bot activity appears in Security Events that your current rules do not catch. Bots that stay under rate limits or evade single-signal rules require combining multiple signals. For example, to challenge `POST` requests to `/login` that are not from verified bots:
 
-<Tabs syncKey="dashNewNav">
-<TabItem label="New dashboard" icon="rocket">
-
 <Steps>
 
 1. In the Cloudflare dashboard, go to **Security** > **Security rules**.
@@ -481,30 +372,6 @@ Bot activity appears in Security Events that your current rules do not catch. Bo
 7. Review the results in Security Events. If the rule matches only bot traffic, change the action to _Block_.
 
 </Steps>
-
-</TabItem>
-<TabItem label="Old dashboard">
-
-<Steps>
-
-1. Log in to the [Cloudflare dashboard](https://dash.cloudflare.com), and select your account and domain.
-2. Go to **Security** > **WAF** > **Custom rules**.
-3. Select **Create rule**.
-4. Enter a descriptive name.
-5. Under **When incoming requests match**, select **Edit expression** and enter:
-
-   ```txt
-   (http.request.uri.path eq "/login" and http.request.method eq "POST" and not cf.client.bot)
-   ```
-
-6. Under **Then take action**, select _Managed Challenge_.
-7. Select **Deploy**.
-8. Review the results in Security Events. If the rule matches only bot traffic, change the action to _Block_.
-
-</Steps>
-
-</TabItem>
-</Tabs>
 
 For more expression fields and examples, refer to [Custom rules use cases](/waf/custom-rules/use-cases/).
 

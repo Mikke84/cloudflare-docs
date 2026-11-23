@@ -5,6 +5,8 @@ head: []
 sidebar:
   order: 1
 description: Run front-end websites — static or dynamic — directly on Cloudflare's global network.
+products:
+  - workers
 ---
 
 import {
@@ -42,10 +44,9 @@ This guide will instruct you through setting up and deploying a static site on W
 />
 
 <Render
-	file="c3-post-run-steps"
+	file="c3-post-run-steps-hello-world"
 	product="workers"
 	params={{
-		category: "hello-world",
 		type: "Static site",
 		lang: "TypeScript",
 	}}
@@ -75,6 +76,7 @@ The [`wrangler deploy`](/workers/wrangler/commands/general/#deploy) will build a
 npx wrangler deploy
 ```
 
+
 :::note
 
 Learn about how assets are configured and how routing works from [Routing configuration](/workers/static-assets/routing/).
@@ -100,10 +102,9 @@ Open a terminal window and run C3 to create your Worker project:
 />
 
 <Render
-	file="c3-post-run-steps"
+	file="c3-post-run-steps-hello-world"
 	product="workers"
 	params={{
-		category: "hello-world",
 		type: "SSR / full-stack app",
 		lang: "TypeScript",
 	}}
@@ -141,6 +142,7 @@ The [`wrangler deploy`](/workers/wrangler/commands/general/#deploy) will build a
 ```sh
 npx wrangler deploy
 ```
+
 
 :::note
 

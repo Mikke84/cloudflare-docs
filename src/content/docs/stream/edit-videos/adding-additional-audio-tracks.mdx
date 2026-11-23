@@ -1,8 +1,11 @@
 ---
 pcx_content_type: how-to
 title: Add additional audio tracks
+description: Upload and manage additional audio tracks for Cloudflare Stream videos via the API.
 sidebar:
   order: 5
+products:
+  - stream
 
 ---
 
@@ -30,7 +33,7 @@ https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/stream/<VIDEO_UID>/au
  "result": {
    "uid": "<AUDIO_UID>",
    "label": "Example Audio Label",
-   "default": false
+   "default": false,
    "status": "queued"
  },
  "success": true,
@@ -68,7 +71,7 @@ https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/stream/<VIDEO_UID>/au
  "result": {
    "uid": "<AUDIO_UID>",
    "label": "Example Audio Label",
-   "default": false
+   "default": false,
    "status": "queued"
  },
  "success": true,
@@ -131,7 +134,7 @@ Editing the `default` status of an audio track to `true` will mark all other aud
   "result": {
     "uid": "<AUDIO_UID>",
     "label": "Edited Audio Label",
-    "default": true
+    "default": true,
     "status": "ready"
   },
   "success": true,

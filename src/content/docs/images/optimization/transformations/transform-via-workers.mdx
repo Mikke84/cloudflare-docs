@@ -1,13 +1,22 @@
 ---
 pcx_content_type: how-to
-title: Transform via Workers
+title: Transform via fetch
+description: Use cf.image options on a fetch() subrequest in a Worker to programmatically resize, format, and optimize remote images.
 sidebar:
-  order: 3
+  order: 4
+  label: Transform via fetch
+products:
+  - images
+  - workers
 ---
 
 import { Render } from "~/components";
 
-Using Workers to transform with a custom URL scheme gives you powerful programmatic control over every image request.
+Workers lets you optimize images with a custom URL scheme.
+
+You can set image optimization parameters on a `fetch()` subrequest in a Worker using the `cf.image` property. This is the same underlying mechanism as the [URL interface](/images/optimization/transformations/overview/#url-interface), but gives you programmatic control over every image request.
+
+To work with image bytes directly instead of URLs, use the [Images binding](/images/optimization/binding/).
 
 Here are a few examples of the flexibility that Workers give you:
 
@@ -34,6 +43,8 @@ fetch(imageURL, {
 ```
 
 These typings are also available in [our Workers TypeScript definitions library](https://github.com/cloudflare/workers-types).
+
+`cf.image` is available on any zone that hosts a Worker, including `*.workers.dev` subdomains. Each transformation is billed to the account that owns the Worker.
 
 ## Configure a Worker
 
@@ -76,6 +87,12 @@ Image transformations are not simulated in the preview of the Workers dashboard 
 :::
 
 The script preview of the Worker editor ignores `fetch()` options, and will always fetch unresized images. To see the effect of image transformations you must deploy the Worker script and use it outside of the editor.
+
+## Local development
+
+When running `wrangler dev`, `cf.image` transformations are applied locally using a low fidelity mock.
+
+A subset of options are supported, including resize, rotate, format, and background colour. Unsupported options are ignored.
 
 ## Error handling
 
@@ -183,6 +200,35 @@ export default {
 ```
 
 When testing image resizing, please deploy the script first. Resizing will not be active in the online editor in the dashboard.
+
+## Unsupported fetch options
+
+Some [`cf` properties](/workers/runtime-apis/request/#the-cf-property-requestinitcfproperties) that work on a regular `fetch()` subrequest are not applied when the same subrequest also sets `cf.image`.
+
+### `resolveOverride`
+
+[`resolveOverride`](/workers/runtime-apis/request/#the-cf-property-requestinitcfproperties) is ignored on a `fetch()` subrequest that includes `cf.image`. Cloudflare fetches the original image using the hostname in the image URL, not the hostname set in `resolveOverride`.
+
+```js
+// resolveOverride is ignored because cf.image is set.
+// The original image is fetched from images.example.com, not origin.example.com.
+fetch("https://images.example.com/photo.jpg", {
+	cf: {
+		image: { width: 800 },
+		resolveOverride: "origin.example.com",
+	},
+});
+```
+
+To fetch the original image from a different origin, use a hostname that resolves to that origin in the image URL itself. The request to the origin then uses that hostname in the `Host` header.
+
+```js
+fetch("https://origin.example.com/photo.jpg", {
+	cf: {
+		image: { width: 800 },
+	},
+});
+```
 
 ## Warning about `cacheKey`
 

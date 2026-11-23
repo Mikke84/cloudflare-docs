@@ -1,34 +1,35 @@
 ---
 title: Domain configuration
+description: Configure and verify DNS records for Email Service sending and routing on your domain.
 pcx_content_type: concept
 summary: |
   Configure domains for Cloudflare Email Service, manage DNS records, and verify domain setup for both email sending and routing.
 sidebar:
   order: 1
+products:
+  - email-service
 ---
 
-import { Steps, Tabs, TabItem } from "~/components";
+import { DashButton, Render, Steps, Tabs, TabItem } from "~/components";
 
 Configure your domains to work with Cloudflare Email Service. This includes DNS record management, domain verification, and advanced domain settings.
 
 ## Automatic DNS configuration
 
-You can quickly get your DNS configured by following the automatic DNS configuration flow as part of the onboarding onto Email Service.
+Cloudflare can configure all required DNS records for you when you onboard a domain onto Email Sending or Email Routing.
 
-1. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com).
+<Tabs>
+<TabItem label="Email Sending">
 
-2. Navigate to **Compute** > **Email Service** > **Email Sending** or **Email Routing**.
+<Render file="domain-setup-sending" product="email-service" />
 
-3. Select **Onboard Domain**.
+</TabItem>
+<TabItem label="Email Routing">
 
-4. Choose a domain from your Cloudflare account.
+<Render file="domain-setup-routing" product="email-service" />
 
-5. Select **Next** to configure DNS records.
-
-6. Press **Add records and onboard**. This will add the following DNS records to your domain:
-   - TXT records for SPF to authorize sending emails and routing forwarded emails.
-   - TXT records for DKIM to provide authentication for emails sent and forwarded from your domain.
-   - MX records to route incoming emails to Email Service.
+</TabItem>
+</Tabs>
 
 ## DNS record configuration details
 
@@ -40,11 +41,11 @@ Here are the specific details of the DNS records configured:
 These records authenticate your outbound emails. Email Sending creates DNS records on a `cf-bounce.` subdomain of your domain to handle bounce processing. These are separate from the records used by Email Routing.
 
 <Tabs>
-<TabItem label="MX Records">
+<TabItem label="MX records">
 
 **Purpose**: Route bounce emails back to Cloudflare for processing.
 
-```dns
+```txt
 MX cf-bounce.yourdomain.com route1.mx.cloudflare.net
 MX cf-bounce.yourdomain.com route2.mx.cloudflare.net
 MX cf-bounce.yourdomain.com route3.mx.cloudflare.net
@@ -58,11 +59,11 @@ MX cf-bounce.yourdomain.com route3.mx.cloudflare.net
 - **Priority**: Assigned automatically by Cloudflare
 
 </TabItem>
-<TabItem label="SPF Record">
+<TabItem label="SPF record">
 
 **Purpose**: Authorizes Cloudflare to send emails on behalf of your domain.
 
-```dns
+```txt
 TXT cf-bounce.yourdomain.com "v=spf1 include:_spf.mx.cloudflare.net ~all"
 ```
 
@@ -74,11 +75,11 @@ TXT cf-bounce.yourdomain.com "v=spf1 include:_spf.mx.cloudflare.net ~all"
 - **TTL**: Auto
 
 </TabItem>
-<TabItem label="DKIM Record">
+<TabItem label="DKIM record">
 
 **Purpose**: Provides cryptographic authentication for your emails.
 
-```dns
+```txt
 TXT cf-bounce._domainkey.yourdomain.com "v=DKIM1; h=sha256; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA..."
 ```
 
@@ -90,11 +91,11 @@ TXT cf-bounce._domainkey.yourdomain.com "v=DKIM1; h=sha256; k=rsa; p=MIIBIjANBgk
 - **TTL**: Auto
 
 </TabItem>
-<TabItem label="DMARC Record">
+<TabItem label="DMARC record">
 
 **Purpose**: Sets policy for email authentication failures.
 
-```dns
+```txt
 TXT _dmarc.yourdomain.com "v=DMARC1; p=reject;"
 ```
 
@@ -105,11 +106,20 @@ TXT _dmarc.yourdomain.com "v=DMARC1; p=reject;"
 - **Value**: DMARC policy
 - **TTL**: Auto
 
+Cloudflare adds this record only if the domain has no DMARC record. If a DMARC record already exists, Cloudflare keeps it unchanged.
+
+The DMARC record is not locked, so you can edit or delete it in **DNS** > **Records**. Cloudflare does not overwrite your changes.
+
 **Policy options:**
 
-- `p=none` - Monitor only (recommended for new setups)
+- `p=none` - Monitor only
 - `p=quarantine` - Quarantine suspicious emails
 - `p=reject` - Reject unauthenticated emails
+
+**Choose a policy:**
+
+- If Email Service is the only service that sends email for the domain, keep the default `p=reject` policy.
+- If other services also send email for the domain, change the policy to `p=none` until their mail passes SPF or DKIM alignment. Then move to `p=quarantine` and `p=reject`. Refer to [DMARC deployment strategy](/email-service/concepts/email-authentication/#dmarc-domain-based-message-authentication-reporting--conformance).
 
 </TabItem>
 </Tabs>
@@ -119,11 +129,11 @@ TXT _dmarc.yourdomain.com "v=DMARC1; p=reject;"
 These records route incoming emails to Cloudflare and authenticate forwarded emails. Email Routing DNS records are configured on the root domain.
 
 <Tabs>
-<TabItem label="MX Records">
+<TabItem label="MX records">
 
 **Purpose**: Route incoming emails to Cloudflare's mail servers.
 
-```dns
+```txt
 MX yourdomain.com route1.mx.cloudflare.net
 MX yourdomain.com route2.mx.cloudflare.net
 MX yourdomain.com route3.mx.cloudflare.net
@@ -137,11 +147,11 @@ MX yourdomain.com route3.mx.cloudflare.net
 - **Priority**: Assigned automatically by Cloudflare
 
 </TabItem>
-<TabItem label="SPF Record">
+<TabItem label="SPF record">
 
 **Purpose**: Authorizes Cloudflare to forward emails on behalf of your domain.
 
-```dns
+```txt
 TXT yourdomain.com "v=spf1 include:_spf.mx.cloudflare.net ~all"
 ```
 
@@ -152,16 +162,18 @@ TXT yourdomain.com "v=spf1 include:_spf.mx.cloudflare.net ~all"
 - **Value**: `v=spf1 include:_spf.mx.cloudflare.net ~all`
 - **TTL**: Auto
 
-:::note[Existing SPF Records]
-If you have existing SPF records, merge them: `v=spf1 include:_spf.mx.cloudflare.net include:_spf.google.com ~all`
+:::note[Existing SPF records]
+If you have existing SPF records, merge them: `v=spf1 include:_spf.mx.cloudflare.net include:_spf.google.com ~all`.
+
+SPF records are limited to 10 DNS lookups total. If merging pushes you over the limit, consider flattening the record or removing non-essential `include:` entries.
 :::
 
 </TabItem>
-<TabItem label="DKIM Record">
+<TabItem label="DKIM record">
 
 **Purpose**: Provides cryptographic authentication for forwarded emails.
 
-```dns
+```txt
 TXT cf2024-1._domainkey.yourdomain.com "v=DKIM1; h=sha256; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA..."
 ```
 
@@ -189,7 +201,7 @@ Email Sending and Email Routing have separate DNS records and separate settings 
    - **SPF record** on `cf-bounce.yourdomain.com`
    - **DKIM record** on `cf-bounce._domainkey.yourdomain.com`
    - **DMARC record** on `_dmarc.yourdomain.com`
-3. Each record shows a **Locked** status when properly configured.
+3. Each record shows either a **Locked** or **Unlocked** status. Both states indicate the record is configured correctly; the status reflects whether Email Service is managing the record. Refer to [Locked DNS records](#locked-dns-records) for more information.
 
 ### Verify Email Routing records
 
@@ -198,17 +210,42 @@ Email Sending and Email Routing have separate DNS records and separate settings 
    - **MX records** on `yourdomain.com`
    - **SPF record** on `yourdomain.com`
    - **DKIM record** on `cf2024-1._domainkey.yourdomain.com`
-3. Each record shows a **Locked** status when properly configured.
+3. Each record shows either a **Locked** or **Unlocked** status. Both states indicate the record is configured correctly; the status reflects whether Email Service is managing the record. Refer to [Locked DNS records](#locked-dns-records) for more information.
 
 ### If records are not configured
 
 - Wait 5-15 minutes for DNS propagation.
 - Check DNS configuration in your domain's **DNS** > **Records** settings.
 
+### Locked DNS records
+
+When Email Service onboarding succeeds, the DNS records it manages are locked to prevent accidental changes that would break mail flow. Locked records show a **Locked** status in the dashboard and cannot be edited or deleted from **DNS** > **Records** until they are unlocked.
+
+Only Email Routing records on the root domain (MX, SPF, and DKIM) support unlocking. Email Sending records on the `cf-bounce` subdomain stay managed by Email Service for the lifetime of the domain configuration.
+
+To unlock an Email Routing record:
+
+1. Go to **Compute** > **Email Service** > **Email Routing**.
+
+   <DashButton url="/?to=/:account/email-service/routing" />
+
+2. Select the domain, then open **Settings**.
+3. Locate the record in the **DNS records** section and select **Unlock**.
+
+If you want to migrate to a different email provider without immediately interrupting service, unlock the routing records first, add the new provider's records alongside them, then remove the Email Service records once the new setup is verified.
+
+### `_dc-mx` DNS responses
+
+This section applies only if your MX records point to hostnames that are proxied through Cloudflare.
+
+When an MX record on your domain points to a hostname that is proxied through Cloudflare, mail delivery to that hostname would normally fail because the Cloudflare proxy does not handle SMTP. To avoid this, Cloudflare automatically inserts a `_dc-mx.<hash>.example.com` record that resolves directly to the origin IP. Sending mail servers follow this record to bypass the proxy and reach the origin.
+
+For more information, refer to [DNS troubleshooting: `_dc-` and `_dc-mx` subdomains](/dns/manage-dns-records/troubleshooting/unexpected-dns-records/#dc--and-_dc-mx-subdomains).
+
 ### Verification troubleshooting
 
 <Tabs>
-<TabItem label="DNS Propagation">
+<TabItem label="DNS propagation">
 
 **Issue**: Records show as "Not Found" immediately after adding.
 
@@ -241,23 +278,23 @@ dig MX cf-bounce.yourdomain.com
 ```
 
 </TabItem>
-<TabItem label="Record Conflicts">
+<TabItem label="Record conflicts">
 
 **Issue**: Existing DNS records conflict with Email Service.
 
-**SPF Conflicts:**
+**SPF conflicts:**
 
 - Merge existing SPF records
 - Remove duplicate `v=spf1` entries
 - Ensure only one SPF record exists
 
-**MX Conflicts:**
+**MX conflicts:**
 
 - Email Routing requires Cloudflare MX records
 - Remove or update existing MX records
 - Cannot use Email Routing with external mail servers
 
-**DKIM Conflicts:**
+**DKIM conflicts:**
 
 - Use different selectors for different services
 - `cf-bounce._domainkey` for Email Sending
@@ -269,59 +306,88 @@ dig MX cf-bounce.yourdomain.com
 
 ## Domain management
 
-### Remove a domain
+Email Sending and Email Routing are managed separately. Removing one does not affect the other.
 
-1. Go to **Compute** > **Email Service** > **Email Sending** > **Settings**.
-2. Select the domain to remove.
-3. Select **Remove Domain**.
-4. Confirm removal.
+### Remove a domain from Email Sending
 
-:::warning[Domain Removal Impact]
-Removing a domain will:
+1. Go to **Compute** > **Email Service** > **Email Sending**.
 
-- Stop all email sending from that domain
-- Disable email routing for that domain
-- Require reconfiguration if re-added
-  :::
+   <DashButton url="/?to=/:account/email-service/sending" />
 
-### DNS record management
+2. Select the domain to remove, then open **Settings**.
+3. Select **Remove Domain** and confirm the action.
 
-When you remove a domain from Email Service, you have two options for handling the DNS records:
+Removing a domain from Email Sending deletes the `cf-bounce` MX, SPF, DKIM, and DMARC records that Email Service created on the domain, and stops all outbound email sending from the domain.
 
-**Option 1: Remove all records**
+### Remove a domain from Email Routing
 
-This removes all Email Service DNS records from your domain:
+1. Go to **Compute** > **Email Service** > **Email Routing**.
 
-- All SPF, DKIM, and MX records for Email Service are deleted
-- Your domain will no longer receive or send emails through Email Service
-- If you want to use Email Service again in the future, you will need to onboard the domain and add all records from scratch
+   <DashButton url="/?to=/:account/email-service/routing" />
 
-**Option 2: Keep records**
+2. Select the domain to remove, then open **Settings**.
+3. Select **Disable Email Routing** and confirm the action.
 
-This keeps the DNS records in place but disables Email Service:
-
-- DNS records remain in your domain configuration
-- Email Service stops processing emails for the domain
-- You can re-enable Email Service by onboarding the domain again
-- DNS records that were automatically added will remain locked to prevent accidental deletion
-
-To modify locked records after removal:
-
-1. Go to your domain's **DNS** > **Records**.
-2. Find the locked Email Service records.
-3. Select the record and choose **Edit**.
-4. Toggle **Unlock record** to enable editing.
-5. Make your changes and save.
+Disabling Email Routing on a domain stops processing incoming emails and removes every routing-related DNS record (MX, SPF, DKIM) that Email Service added to the root domain. If you plan to switch to a different email provider, [unlock the records](#locked-dns-records) and add the new provider's records before disabling Email Routing so that mail flow is not interrupted.
 
 :::note
-Keeping records is useful if you plan to re-enable Email Service later. Removing records is recommended if you are migrating to a different email provider.
+Unlocking an Email Service-created record and editing it to point to another provider does not remove its association with Email Service. The record will still be treated as managed by Email Service and will be deleted when you disable Email Routing.
 :::
+
+### Move to Email Routing from another provider
+
+If your domain has `MX` records from another provider, Email Routing onboarding fails with error 2008, "Non-Cloudflare MX records exist". Follow these steps to switch.
+
+1. Add and verify your destination addresses. Destination addresses belong to the account and can be added before onboarding. Refer to [Route emails](/email-service/get-started/route-emails/) for details.
+
+   <DashButton url="/?to=/:account/email-service/routing" />
+
+2. In the Cloudflare dashboard, go to **DNS** > **Records** and delete your provider's `MX` records. Complete step 3 immediately after — there is a brief window where no MX records exist. Most senders retry delivery and succeed once Cloudflare's records propagate, typically within minutes. Resolvers that cached the absence of MX records may take up to 30 minutes to retry.
+
+   If you no longer send through your current provider, you can also remove its SPF `include:` entry and DKIM records at this point. If you continue to send through it, keep its SPF `include:` and leave its DKIM records in place. DKIM selectors use different names and do not conflict.
+
+3. Enable Email Routing for your domain. Cloudflare adds the required `MX` records and a DKIM record at `cf2024-1._domainkey.<yourdomain>`. If no SPF record exists, Cloudflare also adds one. If you already have an SPF record, add the Cloudflare `include:` manually — refer to [Routing records](#routing-records) for the correct value.
+4. Create your routing rules immediately. When the `MX` records point to Cloudflare, mail to an address with no matching rule is rejected with "Address does not exist", and the sender does not retry.
+
+Until Email Routing is active, keep the old provider account open. Messages sent to cached old `MX` records arrive in your previous mailbox rather than being lost.
 
 ### Transfer domain ownership
 
-1. Domain must remain in the same Cloudflare account.
-2. DNS records are tied to the account, not specific users.
+1. The domain must remain in the same Cloudflare account.
+2. DNS records are tied to the account, not to specific users.
 3. Use Cloudflare account-level permissions to manage access.
+
+## Drop suppressed recipients
+
+**Drop suppressed recipients** controls suppression handling for one sending domain. The setting is off by default.
+
+When the setting is off, a message containing any [suppressed recipient](/email-service/concepts/suppressions/) fails. The REST API returns `400`, the Workers binding throws `E_RECIPIENT_SUPPRESSED`, and SMTP rejects the message.
+
+When the setting is on, Email Service removes suppressed recipients and processes the remaining recipients.
+
+To turn on the setting:
+
+<Steps>
+1. In the Cloudflare dashboard, go to **Compute** > **Email Service** > **Email Sending**.
+
+   <DashButton url="/?to=/:account/email-service/sending" />
+
+2. Select the sending domain, then open **Settings**.
+3. Turn on **Drop suppressed recipients**.
+</Steps>
+
+## Email preview
+
+Turn on **Email preview** to store sent messages so you can inspect their content in the [Activity log](/email-service/observability/logs/#message-preview). Previews cover messages sent while the setting is turned on and are retained for about seven days.
+
+New sending domains have **Email preview** turned on automatically. To change the setting for a domain:
+
+1. Go to **Compute** > **Email Service** > **Email Sending**.
+
+   <DashButton url="/?to=/:account/email-service/sending" />
+
+2. Select the domain, then open **Settings**.
+3. Toggle **Enable email preview**.
 
 ## Next steps
 

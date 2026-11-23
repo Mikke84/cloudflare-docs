@@ -15,7 +15,7 @@ You can deploy the Cloudflare One Client (formerly WARP) in different modes to c
 
 ## Traffic and DNS mode (default)
 
-The Cloudflare One Client routes device traffic for all ports and protocols, and forwards DNS resolution to the [client DNS resolver](/cloudflare-one/networks/resolvers-and-proxies/dns/locations/dns-resolver-ips/).
+The Cloudflare One Client routes device traffic for all ports and protocols, and forwards DNS resolution to the [client DNS resolver](/cloudflare-one/traffic-controls/resolver-endpoints/dns-resolver-ips/).
 
 Use when you want full security coverage, including DNS filtering, HTTP inspection, network firewall policies, and device posture checks.
 
@@ -69,7 +69,7 @@ The default profile is used for all devices that are not assigned to a specific 
 
 To set up Local proxy mode:
 
-1. In [Cloudflare One](https://one.dash.cloudflare.com/), go to **Teams & Resources** > **Device profiles**.
+1. In the [Cloudflare dashboard](https://dash.cloudflare.com/), go to **Zero Trust** > **Teams & Resources** > **Device profiles**.
 2. Decide whether you would like to edit the default profile or create a new device profile.
 3. Select the device profile you want to configure > **Edit** (If you only see **View**, you lack the permissions required to modify profiles).
 4. Ensure the **Device tunnel protocol** is set to `MASQUE`.
@@ -91,7 +91,7 @@ To make more complex routing decisions (such as, routing traffic directly to the
 ### Limitations
 
 - Local proxy mode can only be used by applications/operating systems that support SOCKS5/HTTP proxy communication.
-- Requires the MASQUE [device tunnel protocol](/cloudflare-one/team-and-resources/devices/cloudflare-one-client/configure/settings/#device-tunnel-protocol). Wireguard is not supported.
+- Requires the MASQUE [device tunnel protocol](/cloudflare-one/team-and-resources/devices/cloudflare-one-client/configure/settings/#device-tunnel-protocol) over HTTP/3. WireGuard is not supported, and Local proxy mode does not work when MASQUE falls back to HTTP/2 over `TCP 443`. Devices must be able to reach the [MASQUE ingress IPs](/cloudflare-one/team-and-resources/devices/cloudflare-one-client/deployment/firewall/#masque) over UDP.
 - Only available on Windows, Linux, and macOS.
 - Local proxy mode has a timeout limit of 10 seconds for requests. If a request goes above the 10 second limit, Cloudflare will drop the connection.
 

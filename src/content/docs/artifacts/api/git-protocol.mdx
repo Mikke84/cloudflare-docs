@@ -4,11 +4,15 @@ description: Use Artifacts with standard git-over-HTTPS clients.
 pcx_content_type: reference
 sidebar:
   order: 3
+products:
+  - artifacts
 ---
 
 Artifacts exposes Git access for every Artifacts repository.
 
-Each repo has a standard Git smart HTTP remote at `https://{accountId}.artifacts.cloudflare.net/git/{namespace}/{repo}.git`.
+Each deployed repo has a standard Git smart HTTP remote at `https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/<namespace>/<repo>.git`.
+
+Replace the `<ACCOUNT_ID>` placeholder with your Cloudflare account ID. A local Artifacts binding instead returns an HTTP loopback URL with a dev-session port. Use the exact `remote` returned by the Workers binding or REST API, and refer to [Local development](/artifacts/guides/local-development/) for local setup.
 
 Use the returned repo `remote` with a regular Git client for `clone`, `fetch`, `pull`, and `push`.
 
@@ -19,11 +23,11 @@ Git routes accept repo access tokens in two forms:
 | Format                             | Details                                                                                                                               | Example                                                                                                      |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | Bearer token in `http.extraHeader` | Recommended for local workflows. Use the full token string returned by the control plane and keep credentials out of the remote URL. | `git -c http.extraHeader="Authorization: Bearer $ARTIFACTS_TOKEN" clone "$ARTIFACTS_REMOTE" artifacts-clone` |
-| HTTP Basic auth in the remote URL  | Use for short-lived, one-off commands when you need a self-contained remote. Put the token secret in the password slot.              | `https://x:<token-secret>@<accountId>.artifacts.cloudflare.net/git/<namespace>/<repo>.git`                 |
+| HTTP Basic auth in the remote URL  | Use for short-lived, one-off commands when you need a self-contained remote. Put the token secret in the password slot.              | `https://x:<token-secret>@<ACCOUNT_ID>.artifacts.cloudflare.net/git/<namespace>/<repo>.git`               |
 
 ### Token format
 
-Repo tokens are issued in the format `art_v1_<40 hex>?expires=<unix_seconds>`. The `?expires=` suffix is the token's expiry as a unix timestamp in seconds. To check when a token expires, parse the value after `?expires=`.
+Use the complete token returned by Artifacts for Bearer authentication. Tokens include an `?expires=` suffix with their expiry as a Unix timestamp in seconds. Do not assume a fixed token prefix or secret length. For HTTP Basic authentication, use only the portion before `?expires=` as the password.
 
 ### Git `extraHeader` parameter
 

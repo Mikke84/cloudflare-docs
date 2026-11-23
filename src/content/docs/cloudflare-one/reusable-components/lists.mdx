@@ -10,7 +10,7 @@ sidebar:
 
 import { Render } from "~/components";
 
-With Cloudflare One, you can create lists of URLs, hostnames, or other entries to reference when creating [Gateway policies](/cloudflare-one/traffic-policies/) or [Access policies](/cloudflare-one/access-controls/policies/). This allows you to quickly create rules that match and take actions against several items at once.
+With Cloudflare One, you can create lists of URLs, hostnames, or other entries to reference when creating [Gateway policies](/cloudflare-one/traffic-controls/) or [Access policies](/cloudflare-one/access-controls/policies/). This allows you to quickly create rules that match and take actions against several items at once.
 
 Before creating a list, make note of the [limitations](#limitations).
 
@@ -28,6 +28,7 @@ Lists can contain a single type of data each. Supported data types include:
 - User email addresses
 - IP addresses
 - Device ID numbers
+- AAGUIDs (used by [Access independent MFA](/cloudflare-one/access-controls/access-settings/independent-mfa/#restrict-authenticators-by-aaguid) to restrict the WebAuthn authenticators users can enroll)
 
 <Render file="gateway/lists" product="cloudflare-one" />
 

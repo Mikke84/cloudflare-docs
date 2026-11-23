@@ -1,8 +1,11 @@
 ---
 title: Conversion Options
+description: Configure per-format options for Workers AI Markdown Conversion, including HTML and image settings.
 pcx_content_type: reference
 sidebar:
   order: 5
+products:
+  - workers-ai
 ---
 
 By default, the `toMarkdown` service extracts text content from your files. To further extend the capabilities of the conversion process, you can pass options to the service to control how specific file types are converted.
@@ -10,6 +13,20 @@ By default, the `toMarkdown` service extracts text content from your files. To f
 Options are organized by file type and are all optional.
 
 ## Available options
+
+### Output
+
+```typescript
+{
+  output?: {
+    format?: 'markdown' | 'text';
+  }
+}
+```
+
+- `format`: controls the format of the converted content. Defaults to `markdown`. Set to `text` to receive plain text with Markdown syntax removed.
+
+When `format` is `text`, the `format` field of the [`ConversionResult`](/workers-ai/features/markdown-conversion/usage/binding/#conversionresult-definition) is also set to `text`.
 
 ### Images
 
@@ -40,7 +57,7 @@ This option works on a _best-effort_ basis: it is not guaranteed that the result
 }
 ```
 
-- `hostname`: string to use as a host when resolving relative links inside the HTML.
+- `hostname`: absolute base URL used to resolve relative links in the HTML. Include the scheme and, when applicable, the page path — for example, `https://example.com/docs/page`. A bare hostname such as `example.com` is not sufficient.
 
 - `cssSelector`: string containing a CSS selector pattern to pick specific elements from your HTML. Refer to [how HTML is processed](/workers-ai/features/markdown-conversion/how-it-works/#html) for more details.
 

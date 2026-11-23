@@ -4,6 +4,8 @@ title: Static Assets
 sidebar:
   order: 4
 description: Static assets and the Vite plugin
+products:
+  - workers
 ---
 
 import { WranglerConfig } from "~/components";
@@ -24,6 +26,12 @@ On running `vite build`, an output `wrangler.json` configuration file is generat
 The `assets.directory` field in this file is automatically populated with the path to your `client` build output.
 It is therefore not necessary to provide the `assets.directory` field in your input Worker configuration.
 
+:::note[Cloudflare Access context]
+The Vite plugin can add Static Assets to the generated deployment configuration even when the input Wrangler configuration does not include `assets`. Workers with Static Assets do not receive `ctx.access` in the user Worker.
+
+This behavior affects frameworks that use the Cloudflare Vite plugin, including TanStack Start. For more information, refer to [`ctx.access` limitations](/workers/configuration/cloudflare-access/#ctxaccess-limitations).
+:::
+
 The `assets` configuration should be used, however, if you wish to set [routing configuration](/workers/static-assets/routing/) or enable the [assets binding](/workers/static-assets/binding/#binding).
 The following example configures the `not_found_handling` for a single-page application so that the fallback will always be the root `index.html` file.
 
@@ -38,6 +46,38 @@ The following example configures the `not_found_handling` for a single-page appl
 ```
 
 </WranglerConfig>
+
+### Serve assets from a URL path prefix
+
+To serve built assets from a URL path prefix, set `assets.base_path` in your Wrangler configuration file or `worker.assets.basePath` in [`cloudflare.config.ts`](/cf/projects/cloudflare-config/).
+
+You must also set Vite's [`base`](https://vite.dev/config/shared-options#base) option to the same path, with a trailing slash. Otherwise, your built HTML references JavaScript and CSS files at the root of your domain, and those requests do not match your static assets.
+
+For example, to serve your application from `/app/`:
+
+<WranglerConfig>
+
+```jsonc
+{
+	"assets": {
+		"base_path": "/app"
+	}
+}
+```
+
+</WranglerConfig>
+
+```ts title="vite.config.ts"
+import { cloudflare } from "@cloudflare/vite-plugin";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+	base: "/app/",
+	plugins: [cloudflare()],
+});
+```
+
+For more information, refer to [Serving a subdirectory](/workers/static-assets/routing/advanced/serving-a-subdirectory/).
 
 ## Features
 

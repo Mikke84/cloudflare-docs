@@ -4,13 +4,15 @@ title: Using with MCP clients (CDP)
 description: Configure AI coding agents to control Browser Run sessions through the Model Context Protocol (MCP) using the chrome-devtools-mcp package.
 sidebar:
   order: 4
+products:
+  - browser-run
 ---
 
 import { Render } from "~/components";
 
 You can use the CDP endpoints with AI coding agents through the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). The [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) package provides an MCP server that allows AI assistants to control and inspect browser sessions.
 
-<Render file="rest-api-token-permissions" product="browser-run" />
+<Render file="cdp-api-token-permissions" product="browser-run" />
 
 ## What is MCP?
 
@@ -38,7 +40,7 @@ Add to `claude_desktop_config.json` (Claude Desktop) or `~/.claude.json` (Claude
 			"args": [
 				"-y",
 				"chrome-devtools-mcp@latest",
-				"--wsEndpoint=wss://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/browser-rendering/devtools/browser?keep_alive=600000",
+				"--wsEndpoint=wss://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/browser-run/devtools/browser?keep_alive=600000",
 				"--wsHeaders={\"Authorization\":\"Bearer <API_TOKEN>\"}"
 			]
 		}
@@ -59,7 +61,7 @@ Add to `.opencode.jsonc`:
 				"npx",
 				"-y",
 				"chrome-devtools-mcp@latest",
-				"--wsEndpoint=wss://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/browser-rendering/devtools/browser?keep_alive=600000",
+				"--wsEndpoint=wss://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/browser-run/devtools/browser?keep_alive=600000",
 				"--wsHeaders={\"Authorization\":\"Bearer <API_TOKEN>\"}"
 			],
 			"enabled": true
@@ -80,7 +82,7 @@ Add to `~/.cursor/mcp.json`:
 			"args": [
 				"-y",
 				"chrome-devtools-mcp@latest",
-				"--wsEndpoint=wss://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/browser-rendering/devtools/browser?keep_alive=600000",
+				"--wsEndpoint=wss://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/browser-run/devtools/browser?keep_alive=600000",
 				"--wsHeaders={\"Authorization\":\"Bearer <API_TOKEN>\"}"
 			]
 		}

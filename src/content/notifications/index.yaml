@@ -4,11 +4,14 @@ entries:
     availability: Purchase of Access
     associatedProducts: Cloudflare Access
     nextSteps: Extend the expiration date of the service token. For more details, refer to [Renew your service token](/cloudflare-one/access-controls/service-credentials/service-tokens/#renew-service-tokens).
-    otherFilters: None.
+    otherFilters: You can monitor all current and future Access service tokens. You can also select one or more specific service tokens.
 
   - name: Usage Based Billing
     audience: Customers who want to receive a notification when the usage of a product goes above a set level.
-    availability: Professional plans or higher.
+    availability: |-
+      Professional plans or higher.
+
+      **Note:** Usage-based billing notifications are available to Pay-as-you-go accounts only. Most Enterprise contract accounts are not supported.
     associatedProducts: Billing
     nextSteps: Review your product usage and adjust the configuration and/or increase the alerting threshold.
     otherFilters: |-
@@ -228,10 +231,10 @@ entries:
     otherFilters: None.
 
   - name: Network Flow - DDoS Attack
-    audience: "[BYOIP](/byoip/) and [Spectrum](/spectrum/) customers with [Network Analytics](/analytics/network-analytics/) who want to receive a notification when Cloudflare has mitigated attacks that generate an average of at least 12,000 packets per second over a five-second period, with a duration of one minute or more."
-    availability: Purchase of Magic Transit and/or BYOIP.
+    audience: "[Network Flow](/network-flow/) customers who export sFlow data to Cloudflare and want to receive a notification when one of their sFlow DDoS attack rules detects a DDoS attack in their network traffic."
+    availability: "Purchase of Magic Transit and/or BYOIP. Requires an sFlow DDoS attack rule created through the [Network Flow Rules API](/api/resources/magic_network_monitoring/subresources/rules/)."
     associatedProducts: Magic Transit
-    nextSteps: No action needed. Refer to [DDoS alerts](/ddos-protection/reference/alerts/) for more information.
+    nextSteps: "Review the detected attack and the rule that triggered it. If the rule has auto-advertisement enabled, review the advertisement status for the affected prefixes. Refer to [sFlow DDoS attack rules](/network-flow/rules/s-flow-ddos-attack/) and [Network Flow rule notifications](/network-flow/rules/rule-notifications/) for more information."
     otherFilters: None.
 
   - name: Network Flow - Volumetric Attack
@@ -455,17 +458,6 @@ entries:
       Traffic Monitoring alerts are not sent for each individual events, but only when a spike in traffic reaches the threshold for an alert to be sent.
 
       These thresholds cannot be configured. Service level objectives (SLOs) are used to determine the threshold.
-
-  - name: Passive Origin Monitoring
-    audience: Customers who want to receive a notification when Cloudflare is unable to access their origin. Customers will only receive this notification when their origin is returning a `521` error.
-    availability: All Cloudflare plans.
-    associatedProducts: Traffic Monitoring
-    nextSteps: Refer to [Troubleshooting Cloudflare 5XX errors](/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/) to learn how to troubleshoot these errors.
-    otherFilters: None.
-    limitations: |-
-      Traffic Monitoring alerts are not sent for each individual events, but only when a spike in traffic reaches the threshold for an alert to be sent.
-
-      For every account with this alert set up, you will not receive duplicate alerts within the same four-hour time frame. The alert received will contain the most recent set of origins returning 521s.
 
   - name: Traffic Anomalies Alert
     audience: Enterprise customers who want to receive a notification when one zone is experiencing an unexpected spike or drop in traffic. Refer to [HTTP Traffic Alerts](/notifications/reference/traffic-alerts/) for more information.

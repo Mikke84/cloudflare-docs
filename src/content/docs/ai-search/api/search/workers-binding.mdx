@@ -1,17 +1,16 @@
 ---
 pcx_content_type: reference
 title: Workers binding
+description: Search and chat with AI Search instances from a Cloudflare Worker using the Workers binding.
 sidebar:
   order: 1
+products:
+  - ai-search
 ---
 
 import { Render, MetaInfo, Type } from "~/components";
 
 [Workers](/workers/) provides a serverless execution environment that allows you to create new applications or augment existing ones. Use a [Workers binding](/workers/runtime-apis/bindings/) to search and chat with your AI Search instances from a Cloudflare Worker.
-
-:::note
-The previous `env.AI.autorag()` binding is no longer recommended for use. Refer to [Workers binding migration](/ai-search/api/migration/workers-binding/) for details.
-:::
 
 ## Configure the binding
 
@@ -36,6 +35,8 @@ const results = await instance.search({
 ```
 
 #### Parameters
+
+The Workers binding accepts string values for `messages[].content`. To send image or file content parts, use the [REST API](/ai-search/api/search/rest-api/) or a [public endpoint](/ai-search/api/search/public-endpoint/).
 
 <Render file="v2-search-params" product="ai-search" />
 

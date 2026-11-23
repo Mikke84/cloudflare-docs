@@ -20,7 +20,7 @@ You can add additional domains to the Local Domain Fallback list and specify a D
 
 Local Domain Fallback only applies to devices running the Cloudflare One Client.
 
-Because DNS requests subject to Local Domain Fallback bypass the Gateway resolver, they are not subject to Gateway DNS policies or DNS logging. If you want to route DNS queries to custom resolvers and apply Gateway filtering, use [resolver policies](/cloudflare-one/traffic-policies/resolver-policies/). If both Local Domain Fallback and resolver policies are configured for the same device, Cloudflare will apply client-side Local Domain Fallback rules first.
+Because DNS requests subject to Local Domain Fallback bypass the Gateway resolver, they are not subject to Gateway DNS policies or DNS logging. If you want to route DNS queries to custom resolvers and apply Gateway filtering, use [resolver policies](/cloudflare-one/traffic-controls/resolver-policies/). If both Local Domain Fallback and resolver policies are configured for the same device, Cloudflare will apply client-side Local Domain Fallback rules first.
 
 <Render file="warp/ldf-best-practice" product="cloudflare-one" />
 
@@ -46,7 +46,7 @@ Local Domain Fallback configuration only impacts where DNS requests get resolved
 
 To view the fallback domains applied to a device, you can:
 
-- In [Cloudflare One](https://one.dash.cloudflare.com/), go to **Team & Resources** > **Devices** > find the target device and the **Last active device profile** > follow the [steps above](#view-domains).
+- In the [Cloudflare dashboard](https://dash.cloudflare.com/), go to **Zero Trust** > **Team & Resources** > **Devices** > find the target device and the **Last active device profile** > follow the [steps above](#view-domains).
 - (Desktop only) Run `warp-cli settings` in the terminal of the target device and review the [fallback domains](/cloudflare-one/team-and-resources/devices/cloudflare-one-client/troubleshooting/troubleshooting-guide/#fallback-domains) section of the output.
 - (Desktop only) Collect [client diagnostic logs](/cloudflare-one/team-and-resources/devices/cloudflare-one-client/troubleshooting/diagnostic-logs/) for the device and review the [fallback domain](/cloudflare-one/team-and-resources/devices/cloudflare-one-client/troubleshooting/troubleshooting-guide/#fallback-domains) section in `warp_settings.txt`.
 

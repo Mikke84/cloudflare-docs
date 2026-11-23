@@ -1,8 +1,11 @@
 ---
 title: Cloudflare Workers KV
+description: Workers KV is a global, low-latency, key-value data store for building dynamic and performant APIs and websites.
 pcx_content_type: overview
 sidebar:
   order: 1
+products:
+  - kv
 ---
 
 import {
@@ -74,6 +77,7 @@ export default {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "<ENTER_WORKER_NAME>",
 	"main": "src/index.ts",
+	"upload_source_maps": true,
 	"compatibility_date": "2025-02-04",
 	"observability": {
 		"enabled": true
@@ -166,6 +170,12 @@ The Workers command-line interface, Wrangler, allows you to [create](/workers/wr
 <Feature header="Bindings" href="/kv/concepts/kv-bindings/">
 
 Bindings allow your Workers to interact with resources on the Cloudflare developer platform, including [R2](/r2/), [Durable Objects](/durable-objects/), and [D1](/d1/).
+
+</Feature>
+
+<Feature header="Jurisdictions" href="/kv/reference/data-location/">
+
+Restrict a KV namespace to durably store data only within a specific jurisdiction to help meet compliance requirements.
 
 </Feature>
 

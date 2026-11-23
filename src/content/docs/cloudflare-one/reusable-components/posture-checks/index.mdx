@@ -26,14 +26,14 @@ Setup instructions and requirements vary depending on the device posture attribu
 
 Before integrating a device posture check in a Gateway or Access policy, verify that the Pass/Fail results match your expectations. To view the latest test results for a specific device:
 
-1. In [Cloudflare One](https://one.dash.cloudflare.com/), go to **Team & Resources** > **Devices**.
+1. In the [Cloudflare dashboard](https://dash.cloudflare.com/), go to **Zero Trust** > **Team & Resources** > **Devices**.
 2. Select the device.
 3. Select **View details**.
 4. Select the **Posture checks** tab.
 
 ## 3. Build a device posture policy
 
-You can now use your device posture check in an [Access policy](/cloudflare-one/access-controls/policies/) or a Gateway [network](/cloudflare-one/traffic-policies/network-policies/common-policies/#enforce-device-posture) or [HTTP](/cloudflare-one/traffic-policies/http-policies/common-policies/#check-device-posture) policy. In Access, the enabled device posture attributes will appear in the list of available [selectors](/cloudflare-one/access-controls/policies/#selectors). In Gateway, the attributes will appear when you choose the [Passed Device Posture Check](/cloudflare-one/traffic-policies/network-policies/#device-posture) selector.
+You can now use your device posture check in an [Access policy](/cloudflare-one/access-controls/policies/) or a Gateway [network](/cloudflare-one/traffic-controls/network-policies/common-policies/#enforce-device-posture) or [HTTP](/cloudflare-one/traffic-controls/http-policies/common-policies/#check-device-posture) policy. In Access, the enabled device posture attributes will appear in the list of available [selectors](/cloudflare-one/access-controls/policies/#selectors). In Gateway, the attributes will appear when you choose the [Passed Device Posture Check](/cloudflare-one/traffic-controls/network-policies/#device-posture) selector.
 
 :::caution[Gateway policy limitation]
 

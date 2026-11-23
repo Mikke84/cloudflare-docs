@@ -1,8 +1,11 @@
 ---
 pcx_content_type: concept
 title: Features
+description: Available Cloudflare Images optimization parameters for resizing, cropping, format conversion, and visual effects.
 sidebar:
   order: 1
+products:
+  - images
 ---
 
 import { Details, Render, Tabs, TabItem } from "~/components";
@@ -77,7 +80,11 @@ When using [Images with Workers](/images/optimization/transformations/transform-
 
 <Render file="dpr" product="images" />
 
+<Render file="draw" product="images" />
+
 <Render file="fit" product="images" />
+
+<Render file="upscale" product="images" />
 
 <Render file="flip" product="images" />
 
@@ -103,8 +110,6 @@ When using [Images with Workers](/images/optimization/transformations/transform-
 
 <Render file="sharpen" product="images" />
 
-<Render file="slow-connection-quality" product="images" />
-
 <Render file="trim" product="images" />
 
 <Render file="width" product="images" />
@@ -121,7 +126,7 @@ To [serve responsive images](/images/optimization/make-responsive-images/), you 
 - Maximum of 960 pixels for tablets.
 - Maximum of 640 pixels for mobile phones.
 
-For example, `fit=scale-down,width=1920` sets a maximum size of 1920 px and ensures that the image will not be enlarged unnecessarily.
+For example, `fit=scale-down,width=1920` sets a maximum size of 1920px and ensures that the image will not be enlarged unnecessarily.
 
 You can detect device type by enabling the `CF-Device-Type` header [via Cache Rule](/cache/how-to/cache-rules/examples/cache-device-type/).
 

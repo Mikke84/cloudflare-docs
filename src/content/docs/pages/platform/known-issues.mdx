@@ -1,12 +1,15 @@
 ---
 pcx_content_type: concept
 title: Known issues
+description: Current bugs and limitations for Cloudflare Pages builds, deployments, and configuration.
 sidebar:
   order: 4
+products:
+  - pages
 
 ---
 
-import { DashButton } from "~/components";
+import { DashButton, Tabs, TabItem } from "~/components";
 
 Here are some known bugs and issues with Cloudflare Pages:
 
@@ -49,6 +52,30 @@ Here are some known bugs and issues with Cloudflare Pages:
 
 - [Advanced Certificates](/ssl/edge-certificates/advanced-certificate-manager/) cannot be used with Cloudflare Pages due to Cloudflare for SaaS's [certificate prioritization](/ssl/reference/certificate-and-hostname-priority/).
 
+## Browser Integrity Check on Pages
+
+All requests to a Pages project are evaluated by [Browser Integrity Check](/waf/tools/browser-integrity-check/) (BIC) on the Cloudflare-managed `pages.dev` zone. This includes requests to your `*.pages.dev` subdomain and requests made through a [custom domain](/pages/configuration/custom-domains/).
+
+- You cannot turn off this check for a Pages project.
+- Turning off BIC in your own zone, or adding a [custom rule](/waf/custom-rules/skip/) or [configuration rule](/rules/configuration-rules/) that skips or turns off BIC, only affects your zone. It does not affect the check on the `pages.dev` zone.
+- Clients that send some default library `User-Agent` headers (for example, the default Python `urllib` user agent) receive an HTTP `403` response with [error 1010](/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/).
+
+To allow automated clients to reach your Pages project:
+
+1. **Recommended:** Configure the client to send a descriptive `User-Agent` header that identifies your application. The client does not need to send a browser user agent. For example, in Python:
+
+   ```python
+   import urllib.request
+
+   req = urllib.request.Request(
+       "https://example.com/data.json",
+       headers={"User-Agent": "my-app/1.0 (+https://example.com)"},
+   )
+   urllib.request.urlopen(req)
+   ```
+
+2. If you need full control over Browser Integrity Check, and your domain's nameservers are managed by Cloudflare, serve your site with [Workers static assets](/workers/static-assets/) on a [Custom Domain](/workers/configuration/routing/custom-domains/) or [route](/workers/configuration/routing/routes/) in your zone. Your zone's Browser Integrity Check settings and rules then apply. Refer to [Migrate from Pages to Workers](/workers/static-assets/migration-guides/migrate-from-pages/).
+
 ## Pages Functions
 
 - [Functions](/pages/functions/) does not currently support adding/removing polyfills, so your bundler (for example, webpack) may not run.
@@ -69,7 +96,7 @@ If you would like to enable [Cloudflare Access](https://www.cloudflare.com/teams
 4. Select **Manage** on the Access policy created for your preview deployments.
 5. Under **Access** > **Applications**, select your project.
 6. Select **Configure**.
-7. Under **Public hostname**, in the **Subdomain** field, delete the wildcard (`*`) and select **Save application**. You may need to change the **Application name** at this step to avoid an error.
+7. Under **Public hostname**, in the **Subdomain** field, delete the wildcard (`*`) and select **Save**. You may need to change the **Application name** at this step to avoid an error.
 
 At this step, your `*.pages.dev` domain has been secured behind Access. To resecure your preview deployments:
 
@@ -78,10 +105,10 @@ At this step, your `*.pages.dev` domain has been secured behind Access. To resec
 
 If you have a custom domain and protected your `*.pages.dev` domain behind Access, you must:
 
-10. Select **Add an application** > **Self hosted** in [Cloudflare Zero Trust](https://one.dash.cloudflare.com/).
-11. Input an **Application name** and select your custom domain from the _Domain_ dropdown menu.
-12. Select **Next** and configure your access rules to define who can reach the Access authentication page.
-13. Select **Add application**.
+10. In the [Cloudflare dashboard](https://dash.cloudflare.com/), go to **Zero Trust** > **Access controls** > **Applications**. Select **Create new application** > **Self-hosted and private**.
+11. Select **Add public hostname** and select your custom domain from the _Domain_ dropdown menu.
+12. Configure your access rules to define who can reach the Access authentication page.
+13. Select **Create**.
 
 :::caution
 
@@ -95,31 +122,110 @@ If you have an issue that you do not see listed, let the team know in the Cloudf
 
 You may not be able to delete your Pages project if it has a high number (over 100) of deployments. The Cloudflare team is tracking this issue.
 
-As a workaround, review the following steps to delete all deployments in your Pages project. After you delete your deployments, you will be able to delete your Pages project.
-
-1. Download the `delete-all-deployments.zip` file by going to the following link: [https://pub-505c82ba1c844ba788b97b1ed9415e75.r2.dev/delete-all-deployments.zip](https://pub-505c82ba1c844ba788b97b1ed9415e75.r2.dev/delete-all-deployments.zip).
-2. Extract the `delete-all-deployments.zip` file.
-3. Open your terminal and `cd` into the `delete-all-deployments` directory.
-4. In the `delete-all-deployments` directory, run `npm install` to install dependencies.
-5. Review the following commands to decide which deletion you would like to proceed with:
-
-- To delete all deployments except for the live production deployment (excluding [aliased deployments](https://developers.cloudflare.com/pages/configuration/preview-deployments/#preview-aliases)):
+As a workaround, you can use [`wrangler pages deployment delete`](/workers/wrangler/commands/pages/#pages-deployment-delete) to delete deployments individually. After you delete your deployments, you will be able to delete your Pages project.
 
 ```sh
-CF_API_TOKEN=<YOUR_CF_API_TOKEN> CF_ACCOUNT_ID=<ACCOUNT_ID> CF_PAGES_PROJECT_NAME=<PROJECT_NAME> npm start
+npx wrangler pages deployment delete <DEPLOYMENT_ID> --project-name <PROJECT_NAME>
 ```
 
-- To delete all deployments except for the live production deployment (including [aliased deployments](https://developers.cloudflare.com/pages/configuration/preview-deployments/#preview-aliases), for example, `staging.example.pages.dev`):
+Use the `--force` flag to skip the confirmation prompt and to force deletion of aliased deployments.
 
-```sh
-CF_API_TOKEN=<YOUR_CF_API_TOKEN> CF_ACCOUNT_ID=<ACCOUNT_ID> CF_PAGES_PROJECT_NAME=<PROJECT_NAME> CF_DELETE_ALIASED_DEPLOYMENTS=true npm start
+To delete _all_ of your preview deployments for a particular project, save and run one of the following scripts, passing your project name as the first argument. Each script finds your production deployment, keeps it, and deletes the remaining preview deployments in parallel. You can optionally pass a second argument to control how many deletions run at once (the default is `5`):
+
+<Tabs>
+	<TabItem label="macOS and Linux">
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+project="${1:?usage: $0 <project-name> [parallelism]}"
+parallel="${2:-5}"
+
+deployments=$(npx --no-install wrangler pages deployment list \
+    --project-name "$project" --json)
+
+prod_id=$(jq -r '[.[] | select(.Environment == "Production")][0].Id // empty' <<<"$deployments")
+if [ -z "$prod_id" ]; then
+    echo "No production deployment found for '$project' - aborting." >&2
+    echo "This script keeps your production deployment, so it needs one to run." >&2
+    echo "Create a production deployment by deploying to your production branch (for example: npx wrangler pages deploy <output-dir> --project-name $project), then re-run this script." >&2
+    exit 1
+fi
+
+to_delete=$(jq -r '.[] | select(.Environment != "Production") | .Id' <<<"$deployments")
+count=$(printf '%s\n' "$to_delete" | grep -c . || true)
+
+if [ "$count" -eq 0 ]; then
+    echo "Nothing to delete. Production: $prod_id"
+    exit 0
+fi
+
+echo "Production: $prod_id. Deleting $count preview deployments..."
+
+failed=$(printf '%s\n' "$to_delete" | xargs -n1 -P "$parallel" -I{} \
+    sh -c 'npx --no-install wrangler pages deployment delete "$1" --project-name "$2" --force >/dev/null 2>&1 \
+           || echo "$1"' _ {} "$project")
+
+if [ -n "$failed" ]; then
+    echo "The following deployments failed to delete:" >&2
+    printf '%s\n' "$failed" >&2
+    exit 1
+fi
+
+echo "Done."
 ```
 
-To find your Cloudflare API token, log in to the [Cloudflare dashboard](https://dash.cloudflare.com), select the user icon on the upper righthand side of your screen > go to **My Profile** > **API Tokens**.
+	</TabItem>
+	<TabItem label="PowerShell 7+">
 
-You need a token with `Cloudflare Pages Edit` permissions.
+```powershell
+param(
+    [Parameter(Mandatory=$true)][string]$ProjectName,
+    [int]$Throttle = 5
+)
 
-To find your Account ID, refer to [Find your zone and account ID](/fundamentals/account/find-account-and-zone-ids/).
+$ErrorActionPreference = "Stop"
+$env:CLOUDFLARE_ACCOUNT_ID = $env:CLOUDFLARE_ACCOUNT_ID  # ensure inherited into runspaces
+
+$deployments = npx --no-install wrangler pages deployment list `
+    --project-name $ProjectName --json | ConvertFrom-Json
+
+$prod = $deployments | Where-Object { $_.Environment -eq "Production" } | Select-Object -First 1
+if (-not $prod) {
+    throw "No production deployment found for '$ProjectName' - aborting to avoid data loss. This script keeps your production deployment, so it needs one to run. Create a production deployment by deploying to your production branch (for example: npx wrangler pages deploy <output-dir> --project-name $ProjectName), then re-run this script."
+}
+
+$toDelete = $deployments | Where-Object { $_.Environment -ne "Production" }
+
+if ($toDelete.Count -eq 0) {
+    Write-Output "Nothing to delete. Production: $($prod.Id)"
+    return
+}
+
+Write-Output "Production: $($prod.Id). Deleting $($toDelete.Count) preview deployments..."
+
+$results = $toDelete | ForEach-Object -Parallel {
+    $id = $_.Id
+    npx --no-install wrangler pages deployment delete $id `
+        --project-name $using:ProjectName --force *> $null
+    [pscustomobject]@{ Id = $id; ExitCode = $LASTEXITCODE }
+} -ThrottleLimit $Throttle
+
+$failed = $results | Where-Object { $_.ExitCode -ne 0 }
+if ($failed) {
+    Write-Warning "$($failed.Count) deletions failed:"
+    $failed | Format-Table -AutoSize
+    exit 1
+}
+
+Write-Output "Done."
+```
+
+	</TabItem>
+</Tabs>
+
+These scripts will not delete the active production deployment if one exists.
 
 ## Use Pages as Origin in Cloudflare Load Balancer
 

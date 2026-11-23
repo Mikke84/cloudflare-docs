@@ -3,6 +3,10 @@ pcx_content_type: reference
 title: Settings node
 sidebar:
   order: 43
+description: Query dataset-specific limits via the Settings node.
+products:
+  - analytics
+  - graphql-api
 ---
 
 Cloudflare GraphQL API exposes more than 70 datasets to its customers. These
@@ -12,6 +16,11 @@ shapes; thus, each has its configuration of [limits][1].
 Although we allow access to ALL plans for the essential datasets (like
 `httpRequestsAdaptiveGroups`, `firewallEventsAdaptive`, etc), users on larger
 plans benefit from an extended set of datasets and wider query limits.
+
+Not every dataset with a similar name is open to all plans. For example,
+`firewallEventsAdaptive` is available on all plans, but the aggregated
+`firewallEventsAdaptiveGroups` dataset is not available to Free zones. Refer to
+[Dataset availability by plan](/analytics/graphql-api/limits/#dataset-availability-by-plan).
 
 In addition to [introspection][2], users can use the Settings node that is
 available for both zones and accounts scopes.

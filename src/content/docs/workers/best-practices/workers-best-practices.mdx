@@ -4,6 +4,8 @@ pcx_content_type: concept
 description: Code patterns and configuration guidance for building fast, reliable, observable, and secure Workers.
 sidebar:
   order: 1
+products:
+  - workers
 ---
 
 import {
@@ -26,6 +28,7 @@ The [`compatibility_date`](/workers/configuration/compatibility-dates/) controls
 {
 	"name": "my-worker",
 	"main": "src/index.ts",
+	"upload_source_maps": true,
 	"compatibility_date": "$today",
 	"compatibility_flags": ["nodejs_compat"],
 }
@@ -45,6 +48,7 @@ The [`nodejs_compat`](/workers/runtime-apis/nodejs/) compatibility flag gives yo
 {
 	"name": "my-worker",
 	"main": "src/index.ts",
+	"upload_source_maps": true,
 	"compatibility_date": "$today",
 	"compatibility_flags": ["nodejs_compat"],
 }
@@ -54,9 +58,23 @@ The [`nodejs_compat`](/workers/runtime-apis/nodejs/) compatibility flag gives yo
 
 For more information, refer to [Node.js compatibility](/workers/runtime-apis/nodejs/).
 
+### Enable source maps
+
+Enable [source maps](/workers/observability/source-maps/) for every JavaScript or TypeScript Worker. Captured exception stack traces then point to your original files and lines.
+
+<WranglerConfig>
+
+```toml
+upload_source_maps = true
+```
+
+</WranglerConfig>
+
+If a framework or custom build tool bundles your Worker, enable external source maps in its server build too. With Vite, configure the Worker environment's `build.sourcemap` setting. Keep server maps out of public assets.
+
 ### Generate binding types with wrangler types
 
-Do not hand-write your `Env` interface. Run [`wrangler types`](/workers/wrangler/commands/general/#types) to generate a type definition file that matches your actual Wrangler configuration. This catches mismatches between your config and code at compile time instead of at deploy time.
+Do not hand-write your `Env` interface. Run [`wrangler types`](/workers/wrangler/commands/workers/#types) to generate a type definition file that matches your actual Wrangler configuration. This catches mismatches between your config and code at compile time instead of at deploy time.
 
 Re-run `wrangler types` whenever you add or rename a binding.
 
@@ -79,7 +97,7 @@ export default {
 
 </TypeScriptExample>
 
-For more information, refer to [wrangler types](/workers/wrangler/commands/general/#types).
+For more information, refer to [wrangler types](/workers/wrangler/commands/workers/#types).
 
 ### Store secrets with wrangler secret, not in source
 
@@ -91,6 +109,7 @@ Secrets (API keys, tokens, database credentials) must never appear in your Wrang
 {
 	"name": "my-worker",
 	"main": "src/index.ts",
+	"upload_source_maps": true,
 	"compatibility_date": "$today",
 	"compatibility_flags": ["nodejs_compat"],
 
@@ -114,7 +133,7 @@ You can also pipe secrets from other tools or environment variables:
 
 ```bash
 # Pipe from another CLI tool
-npx some-cli-tool --get-secret | npx wrangler secret put API_KEY
+npx <some-cli-tool> --get-secret | npx wrangler secret put API_KEY
 # Pipe from an environment variable or .env file
 echo "$API_KEY" | npx wrangler secret put API_KEY
 ```
@@ -133,6 +152,7 @@ Each environment is treated separately. Bindings and vars need to be declared pe
 {
 	"name": "my-api",
 	"main": "src/index.ts",
+	"upload_source_maps": true,
 	"compatibility_date": "$today",
 	"compatibility_flags": ["nodejs_compat"],
 
@@ -181,6 +201,7 @@ The most common mistake with routes is missing the DNS record. Without a proxied
 {
 	"name": "my-worker",
 	"main": "src/index.ts",
+	"upload_source_maps": true,
 	"compatibility_date": "$today",
 	"compatibility_flags": ["nodejs_compat"],
 
@@ -275,9 +296,11 @@ For more information, refer to [Streams](/workers/runtime-apis/streams/).
 
 ### Use waitUntil for work after the response
 
-[`ctx.waitUntil()`](/workers/runtime-apis/context/) lets you perform work after the response is sent to the client, such as analytics, cache writes, non-critical logging, or webhook notifications. This keeps your response fast while still completing background tasks.
+[`ctx.waitUntil()`](/workers/runtime-apis/context/) lets you perform work after the response is sent to the client, such as analytics, cache writes, logging, or webhook notifications. This keeps your response fast while still completing background tasks.
 
-There are two common pitfalls: destructuring `ctx` (which loses the `this` binding and throws "Illegal invocation"), and exceeding the 30-second `waitUntil` time limit after the response is sent.
+Use `ctx.waitUntil()` only for work that does not affect the response. If the response depends on the work, `await` it before returning the response or stream the response as the work completes. A Worker that is still streaming a response body remains active without `ctx.waitUntil()`.
+
+There are two common pitfalls: destructuring `ctx` (which loses the `this` binding and throws "Illegal invocation"), and exceeding the 30-second `waitUntil()` time limit after the response is sent or the client disconnects.
 
 <TypeScriptExample filename="src/index.ts">
 
@@ -461,6 +484,7 @@ Create a new `Client` on each request. Hyperdrive manages the underlying pool, s
 {
 	"name": "my-worker",
 	"main": "src/index.ts",
+	"upload_source_maps": true,
 	"compatibility_date": "$today",
 	"compatibility_flags": ["nodejs_compat"],
 
@@ -621,6 +645,7 @@ Use structured JSON logging with `console.log` so logs are searchable and filter
 {
 	"name": "my-worker",
 	"main": "src/index.ts",
+	"upload_source_maps": true,
 	"compatibility_date": "$today",
 	"compatibility_flags": ["nodejs_compat"],
 
@@ -744,6 +769,8 @@ For more information, refer to [Workers errors](/workers/observability/errors/#c
 ### Always await or waitUntil your Promises
 
 A `Promise` that is not `await`ed, `return`ed, or passed to `ctx.waitUntil()` is a floating promise. Floating promises cause silent bugs: dropped results, swallowed errors, and unfinished work. The Workers runtime may terminate your isolate before a floating promise completes.
+
+Choose based on whether the response depends on the work. Use `await` or `return` for work that must complete before the response is correct. Use `ctx.waitUntil()` for work that can run after the response is sent and can finish within the `waitUntil()` time limit.
 
 Enable the `no-floating-promises` lint rule to catch these at development time. If you use ESLint, enable [`@typescript-eslint/no-floating-promises`](https://typescript-eslint.io/rules/no-floating-promises/). If you use oxlint, enable [`typescript/no-floating-promises`](https://oxc.rs/docs/guide/usage/linter/rules/typescript/no-floating-promises.html).
 
@@ -910,11 +937,11 @@ async function handleRequest(request: Request, env: Env): Promise<object> {
 
 ## Development and testing
 
-### Test with @cloudflare/vitest-pool-workers
+### Test with @cloudflare/vitest-plugin
 
-The [`@cloudflare/vitest-pool-workers`](/workers/testing/vitest-integration/) package runs your tests inside the Workers runtime, giving you access to real bindings (KV, R2, D1, Durable Objects) during tests. This catches issues that Node.js-based tests miss, like unsupported APIs or missing compatibility flags.
+The [`@cloudflare/vitest-plugin`](/workers/testing/vitest-integration/) package runs your tests inside the Workers runtime, giving you access to real bindings (KV, R2, D1, Durable Objects) during tests. This catches issues that Node.js-based tests miss, like unsupported APIs or missing compatibility flags.
 
-One known pitfall: the Vitest pool automatically injects `nodejs_compat`, so tests pass even if your Wrangler configuration does not have the flag. Always confirm your `wrangler.jsonc` includes `nodejs_compat` if your code depends on Node.js built-in modules.
+One known pitfall: the Vitest plugin automatically injects `nodejs_compat`, so tests pass even if your Wrangler configuration does not have the flag. Always confirm your `wrangler.jsonc` includes `nodejs_compat` if your code depends on Node.js built-in modules.
 
 <TypeScriptExample filename="test/index.test.ts">
 

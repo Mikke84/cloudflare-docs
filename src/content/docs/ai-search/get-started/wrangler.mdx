@@ -1,9 +1,11 @@
 ---
-title: Wrangler commands
+title: CLI
 pcx_content_type: get-started
 sidebar:
-  order: 3
+  order: 2
 description: Create and manage AI Search instances from the command line.
+products:
+  - ai-search
 ---
 
 import { LinkCard, PackageManagers } from "~/components";
@@ -24,7 +26,13 @@ Create a new instance.
 wrangler ai-search create my-instance
 ```
 
-You can upload files to the instance using the [dashboard](/ai-search/get-started/dashboard/#upload-content) or the [REST API](/api/resources/ai_search/subresources/items/methods/upload/).
+The instance is created in the `default` namespace. To create it in another [namespace](/ai-search/concepts/namespaces/), pass `--namespace` (or `-n`):
+
+```sh
+wrangler ai-search create my-instance --namespace my-namespace
+```
+
+You can upload files to the instance using the [dashboard](/ai-search/get-started/dashboard/#upload-content) or the [REST API](/api/resources/ai_search/subresources/namespaces/subresources/instances/subresources/items/methods/upload/).
 
 ### Connect a data source (optional)
 

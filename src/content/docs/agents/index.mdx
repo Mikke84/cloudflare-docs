@@ -1,6 +1,6 @@
 ---
 title: Build Agents on Cloudflare
-
+description: Build and host AI agents on Cloudflare. Run an agent harness in a Durable Object, add capabilities such as state, WebSockets, and scheduling with the Agents SDK Lifecycle, and give the agent tools.
 pcx_content_type: overview
 tags:
   - AI
@@ -11,154 +11,74 @@ head:
     content: Agents
 ---
 
-import {
-	CardGrid,
-	Description,
-	Feature,
-	LinkButton,
-	LinkTitleCard,
-	PackageManagers,
-	Plan,
-	RelatedProduct,
-	Render,
-	TabItem,
-	Tabs,
-	TypeScriptExample,
-	WranglerConfig,
-	LinkCard,
-} from "~/components";
+import { RelatedProduct, Render } from "~/components";
+import AgentsPlatformDiagram from "~/components/cf/AgentsPlatformDiagram.astro";
 
-Most AI applications today are stateless — they process a request, return a response, and forget everything. Real agents need more. They need to remember conversations, act on schedules, call tools, coordinate with other agents, and stay connected to users in real-time. The Agents SDK gives you all of this as a TypeScript class.
+Build and host AI agents on Cloudflare. Connect chat, voice, email, Slack, and webhooks to a durable agent, and give it tools such as a workspace, a browser, web search, MCP servers, and payments.
 
-Each agent runs on a [Durable Object](/durable-objects/) — a stateful micro-server with its own SQL database, WebSocket connections, and scheduling. Deploy once and Cloudflare runs your agents across its global network, scaling to tens of millions of instances. No infrastructure to manage, no sessions to reconstruct, no state to externalize.
+When you host agents on Cloudflare, each agent has a durable identity, local SQL storage, real-time connections, scheduled work, and recoverable execution.
+
+Deploy once and Cloudflare runs your agents across its global network, scaling to tens of millions of instances. No infrastructure to manage, no sessions to reconstruct, no state to externalize.
+
+<AgentsPlatformDiagram />
+
+Agents on Cloudflare are composed from four parts:
+
+- **The runtime is a Durable Object, the Lifecycle, and capabilities.** Each agent is a [Durable Object](/durable-objects/), and [routing](/agents/runtime/routing/) sends each request to the right one. The Agents SDK [Lifecycle](/agents/runtime/lifecycle/) runs inside the Durable Object, handles its requests, alarms, and WebSocket events, and starts the [capabilities](/agents/runtime/capabilities/) you add to it with `.use()`. Capabilities include [`WebSockets`](/agents/runtime/capabilities/websockets/), [`State`](/agents/runtime/capabilities/state/), [`Scheduler`](/agents/runtime/capabilities/scheduler/), and [`MCPClientManager`](/agents/runtime/capabilities/mcp-client-manager/).
+- **The harness is the capability that runs the agent loop.** A harness calls models, runs tools, handles tool results, streams responses, and decides whether to continue. It is the unit of compute for an agent, and the Agents SDK exists to make harnesses run well on Cloudflare. Use the [Pi harness](/agents/harnesses/pi/), which runs the [Pi](https://pi.dev/) agent loop durably and keeps a run going after the object is evicted.
+- **Tools** let the agent act. For a durable file system and code execution, give the agent a [workspace](/agents/tools/filesystem/) from Cloudflare Computer. The Agents SDK also includes [web fetch](/agents/tools/web-fetch/), [web search](/agents/tools/web-search/), [browser automation](/agents/tools/browser/), [sandboxed code execution](/agents/tools/sandbox/), [AI Search](/agents/tools/ai-search/), [MCP servers](/agents/tools/mcp/), [payments](/agents/tools/payments/), and [Code Mode](/agents/tools/codemode/).
+- **Communication channels** define how users and systems reach your agent, such as [chat](/agents/agent-class/communication-channels/chat/), [voice](/agents/agent-class/communication-channels/voice/), [email](/agents/agent-class/communication-channels/email/), [Slack](/agents/agent-class/communication-channels/slack/), [webhooks](/agents/agent-class/communication-channels/webhooks/), and other event sources. These guides use the [`Agent` class](/agents/agent-class/), a preset Durable Object with the Lifecycle and a set of capabilities already installed.
+
+Agents publish structured events, such as state changes, schedules, and MCP connections, that you can use for [observability](/agents/runtime/observability/).
 
 ### Get started
 
-Three commands to a running agent. No API keys required — the starter uses [Workers AI](/workers-ai/) by default.
+Build your first agent with the Pi harness. The [Pi harness](/agents/harnesses/pi/) runs the [Pi](https://pi.dev/) agent loop durably in a Durable Object. It uses the Lifecycle's job queue to schedule future work, so a run continues after the object is evicted. No API keys are required. The examples use [Workers AI](/workers-ai/) through the `AI` binding.
 
-```sh
-npx create-cloudflare@latest --template cloudflare/agents-starter
-cd agents-starter && npm install
-npm run dev
-```
+<Render file="pi-install" product="agents" />
 
-The starter includes streaming AI chat, server-side and client-side tools, human-in-the-loop approval, and task scheduling — a foundation you can build on or tear apart. You can also swap in [OpenAI, Anthropic, Google Gemini, or any other provider](/agents/api-reference/using-ai-models/).
+To start from a complete app with a browser UI, a Cloudflare Computer workspace, and code execution, deploy the Pi harness example:
 
-<LinkCard
-	title="Build a chat agent"
-	href="/agents/getting-started/build-a-chat-agent/"
-	description="Step-by-step tutorial that walks through the starter and shows how to customize it."
-/>
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/agents/tree/main/examples/next/harnesses/pi)
 
-<LinkCard
-	title="Add to an existing project"
-	href="/agents/getting-started/add-to-existing-project/"
-	description="Install the agents package into a Workers project and wire up routing."
-/>
+To build it step by step, follow [Build your first Durable Agent](/agents/getting-started/quick-start/). To learn the Lifecycle, [`State`](/agents/runtime/capabilities/state/), and [`WebSockets`](/agents/runtime/capabilities/websockets/) without a model, refer to [Learn the runtime](/agents/getting-started/learn-the-runtime/). To add the Lifecycle to a Worker you already have, refer to [Add to an existing project](/agents/getting-started/add-to-existing-project/).
 
-### What agents can do
+### Example agents
 
-- **Remember everything** — Every agent has a built-in [SQL database](/agents/api-reference/store-and-sync-state/) and key-value state that syncs to connected clients in real-time. State survives restarts, deploys, and hibernation.
-- **Build AI chat** — [`AIChatAgent`](/agents/api-reference/chat-agents/) gives you streaming AI chat with automatic message persistence, resumable streams, and tool support. Pair it with the [`useAgentChat`](/agents/api-reference/chat-agents/) React hook to build chat UIs in minutes.
-- **Think with any model** — Call [any AI model](/agents/api-reference/using-ai-models/) — Workers AI, OpenAI, Anthropic, Gemini — and stream responses over [WebSockets](/agents/api-reference/websockets/) or [Server-Sent Events](/agents/api-reference/http-sse/). Long-running reasoning models that take minutes to respond work out of the box.
-- **Use and serve tools** — Define server-side tools, client-side tools that run in the browser, and [human-in-the-loop](/agents/concepts/human-in-the-loop/) approval flows. Expose your agent's tools to other agents and LLMs via [MCP](/agents/api-reference/mcp-agent-api/).
-- **Act on their own** — [Schedule tasks](/agents/api-reference/schedule-tasks/) on a delay, at a specific time, or on a cron. Agents can wake themselves up, do work, and go back to sleep — without a user present.
-- **Browse the web** — Give your agents [browser tools](/agents/api-reference/browse-the-web/) powered by the Chrome DevTools Protocol to scrape, screenshot, debug, and interact with web pages.
-- **Talk to users** — Build real-time [voice agents](/agents/api-reference/voice/) with speech-to-text, text-to-speech, and conversation persistence — audio streams over WebSocket.
-- **Orchestrate work** — Run multi-step [workflows](/agents/api-reference/run-workflows/) with automatic retries, or coordinate across multiple agents.
-- **React to events** — Handle [inbound email](/agents/api-reference/email/), HTTP requests, WebSocket messages, and state changes — all from the same class.
+The Pi agent runs on the Pi harness. The other examples build on the [`Agent` class](/agents/agent-class/) preset.
 
-### How it works
+<RelatedProduct header="Pi agent" href="/agents/harnesses/pi/" product="agents">
 
-An agent is a TypeScript class. Methods marked with `@callable()` become typed RPC that clients can call directly over WebSocket.
-
-<TypeScriptExample>
-
-```ts
-import { Agent, callable } from "agents";
-
-export class CounterAgent extends Agent<Env, { count: number }> {
-	initialState = { count: 0 };
-
-	@callable()
-	increment() {
-		this.setState({ count: this.state.count + 1 });
-		return this.state.count;
-	}
-}
-```
-
-</TypeScriptExample>
-
-```tsx
-import { useAgent } from "agents/react";
-
-function Counter() {
-	const [count, setCount] = useState(0);
-	const agent = useAgent({
-		agent: "CounterAgent",
-		onStateUpdate: (state) => setCount(state.count),
-	});
-
-	return <button onClick={() => agent.stub.increment()}>{count}</button>;
-}
-```
-
-For AI chat, extend `AIChatAgent` instead. Messages are persisted automatically, streams resume on disconnect, and the React hook handles the UI.
-
-<TypeScriptExample>
-
-```ts
-import { AIChatAgent } from "@cloudflare/ai-chat";
-import { createWorkersAI } from "workers-ai-provider";
-import { streamText, convertToModelMessages } from "ai";
-
-export class ChatAgent extends AIChatAgent {
-	async onChatMessage() {
-		const workersai = createWorkersAI({ binding: this.env.AI });
-		const result = streamText({
-			model: workersai("@cf/zai-org/glm-4.7-flash"),
-			messages: await convertToModelMessages(this.messages),
-		});
-		return result.toUIMessageStreamResponse();
-	}
-}
-```
-
-</TypeScriptExample>
-
-Refer to the [quick start](/agents/getting-started/quick-start/) for a full walkthrough, the [chat agents guide](/agents/api-reference/chat-agents/) for the full chat API, or the [Agents API reference](/agents/api-reference/agents-api/) for the complete SDK.
-
----
-
-### Build on the Cloudflare Platform
-
-<RelatedProduct header="Workers AI" href="/workers-ai/" product="workers-ai">
-
-Run machine learning models, powered by serverless GPUs, on Cloudflare's global network. No API keys required.
+Build an agent on the Pi harness, with tools, sessions, and recovery after eviction.
 
 </RelatedProduct>
 
-<RelatedProduct header="Workers" href="/workers/" product="workers">
+<RelatedProduct header="Chat agent" href="/agents/examples/chat-agent/" product="workers-ai">
 
-Build serverless applications and deploy instantly across the globe for exceptional performance, reliability, and scale.
-
-</RelatedProduct>
-
-<RelatedProduct header="AI Gateway" href="/ai-gateway/" product="ai-gateway">
-
-Observe and control your AI applications with caching, rate limiting, request retries, model fallback, and more.
+Build a streaming AI chat agent with tools and human-in-the-loop approvals.
 
 </RelatedProduct>
 
-<RelatedProduct header="Vectorize" href="/vectorize/" product="vectorize">
+<RelatedProduct header="Slack agent" href="/agents/examples/slack-agent/" product="agents">
 
-Build full-stack AI applications with Vectorize, Cloudflare's vector database for semantic search, recommendations, and providing context to LLMs.
+Build an agent that responds to Slack messages, mentions, and commands.
 
 </RelatedProduct>
 
-<RelatedProduct header="Workflows" href="/workflows/" product="workflows">
+<RelatedProduct header="Voice agent" href="/agents/examples/voice-agent/" product="stream">
 
-Build stateful agents that guarantee executions, including automatic retries, persistent state that runs for minutes, hours, days, or weeks.
+Build a real-time voice agent with speech-to-text and text-to-speech.
+
+</RelatedProduct>
+
+<RelatedProduct header="Browser agent" href="/agents/examples/browser-agent/" product="browser-run">
+
+Build an agent that can inspect pages, capture screenshots, and use browser tools.
+
+</RelatedProduct>
+
+<RelatedProduct header="Email agent" href="/agents/examples/email-agent/" product="email-routing">
+
+Build an agent that sends, receives, routes, and replies to email.
 
 </RelatedProduct>

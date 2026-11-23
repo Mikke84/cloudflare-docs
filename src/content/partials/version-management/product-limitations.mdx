@@ -34,12 +34,6 @@ Version Management does not currently support or have limited support for the fo
 
 </Details>
 
-<Details header="Cache Response Rules">
-
-- [Cache Response Rules](/cache/how-to/cache-response-rules/) do not work with Version Management.
-
-</Details>
-
 <Details header="Workers Cache API">
 
 - [Workers Cache API](/workers/runtime-apis/cache/) does not work with Version Management.
@@ -56,8 +50,17 @@ Version Management does not currently support or have limited support for the fo
 
 <Details header="Cloudflare API">
 
-- Version Management does not currently expose a public [API](/api/).
-- Customers can only use Version Management through the [Cloudflare dashboard](https://dash.cloudflare.com/).
+- Version Management environments — including their routing expressions and version assignments — can be managed through the public [Environments API](/api/resources/zones/subresources/environments/).
+- Creating, cloning, and editing zone versions (the configuration snapshots themselves) are currently only available through the [Cloudflare dashboard](https://dash.cloudflare.com/).
+
+</Details>
+
+<Details header="DDoS Protection">
+
+- [HTTP DDoS Attack Protection](/ddos-protection/managed-rulesets/http/) (`ddos_l7`) and [Network-layer DDoS Attack Protection](/ddos-protection/managed-rulesets/network/) (`ddos_l4`) do not support Version Management.
+- These protections always use the configuration in **Version Zero**, regardless of the version deployed to an environment.
+- DDoS overrides configured in any other version have no effect.
+- To adjust HTTP DDoS managed ruleset behavior for the zone, configure overrides in **Version Zero**. Network-layer DDoS overrides are configured at the account level and are not versioned.
 
 </Details>
 
@@ -96,7 +99,7 @@ Version Management does not currently support or have limited support for the fo
 
 <Details header="Security Insights">
 
-- [Security Insights](/security-center/security-insights/) are not shown when Zone Versioning is enabled and the first version is deployed to production.
+- [Security Insights](/security/security-insights/) are not shown when Zone Versioning is enabled and the first version is deployed to production.
 
 </Details>
 

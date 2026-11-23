@@ -1,5 +1,4 @@
 ---
-
 summary: Build a WebSocket server using WebSocket Hibernation on Durable Objects
   and Workers.
 tags:
@@ -11,6 +10,8 @@ sidebar:
 description: Build a WebSocket server using WebSocket Hibernation on Durable
   Objects and Workers.
 reviewed: 2024-02-28
+products:
+  - durable-objects
 ---
 
 import { TabItem, Tabs, WranglerConfig, TypeScriptExample } from "~/components";
@@ -289,6 +290,7 @@ Finally, configure your Wrangler file to include a Durable Object [binding](/dur
 	"$schema": "./node_modules/wrangler/config-schema.json",
 	"name": "websocket-hibernation-server",
 	"main": "src/index.ts",
+	"upload_source_maps": true,
 	"durable_objects": {
 		"bindings": [
 			{

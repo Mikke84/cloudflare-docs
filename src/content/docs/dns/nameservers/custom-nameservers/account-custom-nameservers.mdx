@@ -109,9 +109,9 @@ Cloudflare will assign an IPv4 and an IPv6 address to each ACNS name, and these 
 <Tabs syncKey="dashPlusAPI">
 <TabItem label="Dashboard">
 
-1. In the Cloudflare dashboard, go to the **DNS Records** page.
+1. In the Cloudflare dashboard, go to the **DNS Settings** page.
 
-   <DashButton url="/?to=/:account/:zone/dns/records" />
+   <DashButton url="/?to=/:account/:zone/dns/settings" />
 
 2. For **Custom nameservers**, select **Configure**.
 3. Select **Use your account custom nameservers** and choose a nameserver set from the list.
@@ -130,6 +130,14 @@ Use the endpoint [Update DNS Settings for a Zone](/api/resources/dns/subresource
 - If your domain uses [Cloudflare Registrar](/registrar/), [contact Cloudflare Support](/support/contacting-cloudflare-support/) to update your nameservers.
 - If your domain uses a different registrar, update the nameservers at your registrar to use the account custom nameservers.
 - If your zone is delegated, update the corresponding `NS` record at the parent zone.
+
+:::note
+If your zone is in **Pending Nameserver Update** status, verify which nameservers to set
+at your registrar from your Cloudflare **activation email**, not the zone **Overview** page
+in the dashboard. The dashboard may display standard account custom nameservers rather than
+a [nameserver set](/dns/nameservers/custom-nameservers/nameserver-sets/) assigned to the zone.
+The activation email always reflects the nameservers currently assigned to the zone.
+:::
 
 ### 3. (Optional) Make ACNS default for new zones
 

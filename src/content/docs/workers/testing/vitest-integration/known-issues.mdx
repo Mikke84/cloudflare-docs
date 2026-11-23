@@ -5,9 +5,11 @@ sidebar:
   order: 9
 head: []
 description: Explore the known issues associated with the Workers Vitest integration.
+products:
+  - workers
 ---
 
-The Workers Vitest pool is currently in open beta. The following are issues Cloudflare is aware of and fixing:
+The Workers Vitest plugin has the following known issues:
 
 ### Coverage
 
@@ -20,10 +22,6 @@ Vitest's [fake timers](https://vitest.dev/guide/mocking.html#timers) do not appl
 ### Dynamic `import()` statements with `exports` and Durable Objects
 
 Dynamic `import()` statements do not work inside `export default { ... }` handlers when writing integration tests with `exports.default.fetch()`, or inside Durable Object event handlers. You must import and call your handlers directly, or use static `import` statements in the global scope.
-
-### Durable Object alarms
-
-Durable Object alarms are not reset between test runs and do not respect isolated storage. Ensure you delete or run all alarms with [`runDurableObjectAlarm()`](/workers/testing/vitest-integration/test-apis/#durable-objects) scheduled in each test before finishing the test.
 
 ### WebSockets
 
@@ -47,7 +45,7 @@ beforeAll(async () => {
 
 #### Explicitly signal resource disposal
 
-When calling RPC methods of a Service Worker or Durable Object that return non-primitive values (such as objects or classes extending `RpcTarget`), use the `using` keyword to explicitly signal when resources can be disposed of. See [this example test](https://github.com/cloudflare/workers-sdk/tree/main/fixtures/vitest-pool-workers-examples/rpc/test/unit.test.ts#L155) and refer to [explicit-resource-management](/workers/runtime-apis/rpc/lifecycle#explicit-resource-management) for more details.
+When calling RPC methods of a Service Worker or Durable Object that return non-primitive values (such as objects or classes extending `RpcTarget`), use the `using` keyword to explicitly signal when resources can be disposed of. See [this example test](https://github.com/cloudflare/workers-sdk/tree/main/fixtures/vitest-plugin-examples/rpc/test/unit.test.ts#L155) and refer to [explicit-resource-management](/workers/runtime-apis/rpc/lifecycle#explicit-resource-management) for more details.
 
 ```ts
 using result = await stub.getCounter();
@@ -84,7 +82,7 @@ In this case, any exports from `@virtual-module` (such as `MyEntrypoint`) cannot
 To work around this, add the `additionalExports` option to your Vitest configuration:
 
 ```ts
-import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
+import { cloudflareTest } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
@@ -103,10 +101,10 @@ The `additionalExports` option is a map where keys are the export names and valu
 
 ### Module resolution
 
-If you encounter module resolution issues such as: `Error: Cannot use require() to import an ES Module` or `Error: No such module`, you can bundle these dependencies using the [deps.optimizer](https://vitest.dev/config/#deps-optimizer) option:
+If you encounter module resolution issues such as: `Error: Cannot use require() to import an ES Module` or `Error: No such module`, you can bundle these dependencies using the [deps.optimizer](https://vitest.dev/config/deps#deps-optimizer) option:
 
 ```ts
-import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
+import { cloudflareTest } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
@@ -161,7 +159,7 @@ async function viteImport(file: string) {
 
 ```ts
 // File: vitest.config.ts
-import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
+import { cloudflareTest } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({

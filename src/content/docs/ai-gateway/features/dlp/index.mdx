@@ -1,10 +1,13 @@
 ---
 pcx_content_type: concept
 title: Data Loss Prevention (DLP)
+description: Protect sensitive data in AI Gateway prompts and responses using Cloudflare DLP detection engines.
 sidebar:
-  order: 5
+  order: 7
   group:
     badge: Beta
+products:
+  - ai-gateway
 ---
 
 import { Feature } from "~/components";
@@ -52,6 +55,20 @@ Because of this buffering:
 - **Request-only DLP scanning** (where the **Check** setting is set to **Request**) does not buffer the response and has no impact on streaming latency.
 - If you need low-latency streaming for certain requests while still using DLP on the same gateway, consider setting the DLP policy **Check** to **Request** only, or use separate gateways for latency-sensitive and DLP-scanned traffic.
 
+### Interaction with caching
+
+DLP scanning runs after a cache miss, when AI Gateway forwards the request to the provider and receives a response. The following table describes how each DLP outcome affects caching:
+
+| DLP outcome | Response cached | Behavior |
+| --- | --- | --- |
+| Pass (no findings) | Yes | The response is cached normally according to your gateway cache settings. |
+| Flag | Yes | The response is cached normally. DLP findings are attached to the `cf-aig-dlp` response header and recorded in logs, but the original response is returned to the client. |
+| Block | No | The provider response is discarded and replaced with a DLP error response (status `400`). |
+
+**Cache hits skip DLP scanning.** When a subsequent identical request matches a cached response, AI Gateway serves it directly from cache without re-running DLP. This is safe because only responses that already passed DLP (or were flagged, not blocked) are cached. However, if you update your DLP policies after a response has been cached, the cached response is not re-evaluated. It continues to be served until the cache TTL expires.
+
+If you need DLP policy changes to take effect immediately, you can bypass the cache for new requests using the `cf-aig-skip-cache` header. For more information, refer to [Caching](/ai-gateway/features/caching/).
+
 ### Per-request DLP controls
 
 DLP policies are configured at the gateway level and apply uniformly to all requests passing through that gateway. There is no per-request header to select specific DLP profiles or to bypass DLP scanning for individual requests.
@@ -64,7 +81,7 @@ AI Gateway DLP uses the same [detection profiles](/cloudflare-one/data-loss-prev
 
 Key differences from Cloudflare One Gateway DLP:
 
-- **No Gateway proxy or TLS decryption required** - AI Gateway inspects traffic directly as an AI proxy, so you do not need to set up [Gateway HTTP filtering](/cloudflare-one/traffic-policies/get-started/http/) or [TLS decryption](/cloudflare-one/traffic-policies/http-policies/tls-decryption/).
+- **No Gateway proxy or TLS decryption required** - AI Gateway inspects traffic directly as an AI proxy, so you do not need to set up [Gateway HTTP filtering](/cloudflare-one/traffic-controls/get-started/http/) or [TLS decryption](/cloudflare-one/traffic-controls/http-policies/tls-decryption/).
 - **Separate policy management** - DLP policies for AI Gateway are configured per gateway in the AI Gateway dashboard, not in Cloudflare One traffic policies.
 - **Separate logs** - DLP events for AI Gateway appear in [AI Gateway logs](/ai-gateway/observability/logging/), not in Cloudflare One HTTP request logs.
 - **Shared profiles** - DLP detection profiles (predefined and custom) are shared across both products. Changes to a profile apply everywhere it is used.

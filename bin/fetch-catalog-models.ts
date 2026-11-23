@@ -25,6 +25,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import {
+	hasMoreCatalogModels,
+	mapConcurrentOrdered,
+} from "./catalog-import-utils";
 
 interface CatalogModel {
 	model_id: string;
@@ -36,7 +40,24 @@ interface CatalogModel {
 	context_length: number | null;
 	max_output_tokens: number | null;
 	supports_async: boolean;
-	pricing: Record<string, number>;
+	// Zero Data Retention. Optional because older catalog API responses
+	// omit the field entirely — declaring it here keeps `JSON.stringify`
+	// round-trips type-safe rather than relying on the cast hole at the
+	// JSON-write step.
+	zdr?: boolean;
+	zdr_comment?: string | null;
+	// In-page notice surfaced on the model detail page. Same round-trip
+	// rationale as `zdr` above — declaring the shape here keeps the
+	// JSON-write path type-checked rather than relying on the cast hole.
+	banner?: {
+		title?: string;
+		text: string;
+		severity: string;
+		dismissible?: boolean;
+		link?: { url: string; label: string };
+	} | null;
+	// Request-format identifiers the model accepts at the API layer.
+	request_formats?: string[] | null;
 	examples: Array<{
 		name: string;
 		description?: string;
@@ -63,6 +84,7 @@ interface CatalogModel {
 	private?: boolean;
 	created_at?: string;
 	updated_at?: string;
+	pricing?: Record<string, unknown>;
 }
 
 interface CatalogListResponse {
@@ -88,6 +110,22 @@ const API_BASE_URL =
 	process.env.CF_API_BASE_URL || "https://api.cloudflare.com";
 const PER_PAGE = 100;
 const CONCURRENCY = 5;
+
+function getPlannedDeprecationDate(model: CatalogModel): string | undefined {
+	const metadata = model.metadata as Record<string, unknown> | undefined;
+	const value = metadata?.planned_deprecation_date;
+	return typeof value === "string" ? value : undefined;
+}
+
+function isDeprecated(model: CatalogModel): boolean {
+	const plannedDeprecationDate = getPlannedDeprecationDate(model);
+	if (!plannedDeprecationDate) {
+		return false;
+	}
+
+	const timestamp = new Date(plannedDeprecationDate).getTime();
+	return !Number.isNaN(timestamp) && Date.now() > timestamp;
+}
 
 function parseArgs(): { file?: string } {
 	const args = process.argv.slice(2);
@@ -123,11 +161,19 @@ async function loadFromFile(filePath: string): Promise<CatalogModel[]> {
 	}
 
 	const publicModels = models.filter((m) => !m.private);
-	const skipped = models.length - publicModels.length;
+	const activeModels = publicModels.filter((m) => !isDeprecated(m));
+	const skippedPrivate = models.length - publicModels.length;
+	const skippedDeprecated = publicModels.length - activeModels.length;
+	const skippedNotes = [
+		skippedPrivate > 0 ? `${skippedPrivate} private skipped` : null,
+		skippedDeprecated > 0 ? `${skippedDeprecated} deprecated skipped` : null,
+	]
+		.filter(Boolean)
+		.join(", ");
 	console.log(
-		`  Loaded ${models.length} models${skipped > 0 ? ` (${skipped} private skipped)` : ""}`,
+		`  Loaded ${models.length} models${skippedNotes ? ` (${skippedNotes})` : ""}`,
 	);
-	return publicModels;
+	return activeModels;
 }
 
 function getApiHeaders(token: string): Record<string, string> {
@@ -144,6 +190,7 @@ async function fetchModelList(
 	const modelIds: string[] = [];
 	let page = 1;
 	let hasMore = true;
+	let modelsSeen = 0;
 
 	console.log("Fetching model list from Unified Catalog API...");
 	console.log(`  Base URL: ${API_BASE_URL}`);
@@ -181,13 +228,14 @@ async function fetchModelList(
 		}
 
 		const { count, total_count } = data.result_info!;
+		modelsSeen += data.result.length;
 		const privateNote =
 			skippedPrivate > 0 ? ` (${skippedPrivate} private skipped)` : "";
 		console.log(
-			`  Page ${page}: ${count} models (${modelIds.length}/${total_count})${privateNote}`,
+			`  Page ${page}: ${count} models (${modelsSeen}/${total_count})${privateNote}`,
 		);
 
-		hasMore = modelIds.length < total_count;
+		hasMore = hasMoreCatalogModels(modelsSeen, total_count, data.result.length);
 		page++;
 	}
 
@@ -245,26 +293,27 @@ async function fetchFromApi(): Promise<CatalogModel[]> {
 	);
 
 	// Pass 2: fetch full details for each model
+	const results = await mapConcurrentOrdered(
+		modelIds,
+		CONCURRENCY,
+		async (modelId) => {
+			try {
+				return await fetchModelDetail(ACCOUNT_ID, API_TOKEN, modelId);
+			} catch (error) {
+				console.error(`  Failed to fetch ${modelId}:`, error);
+				return null;
+			}
+		},
+		(fetched) =>
+			process.stdout.write(`\r  ${fetched}/${modelIds.length} models fetched`),
+	);
+
 	const models: CatalogModel[] = [];
 	const failed: string[] = [];
-
-	for (let i = 0; i < modelIds.length; i += CONCURRENCY) {
-		const batch = modelIds.slice(i, i + CONCURRENCY);
-		const results = await Promise.all(
-			batch.map((id) => fetchModelDetail(ACCOUNT_ID, API_TOKEN, id)),
-		);
-
-		for (let j = 0; j < results.length; j++) {
-			const result = results[j];
-			if (result) {
-				models.push(result);
-			} else {
-				failed.push(batch[j]);
-			}
-		}
-
-		const fetched = Math.min(i + CONCURRENCY, modelIds.length);
-		process.stdout.write(`\r  ${fetched}/${modelIds.length} models fetched`);
+	for (let index = 0; index < results.length; index++) {
+		const result = results[index];
+		if (result) models.push(result);
+		else failed.push(modelIds[index]);
 	}
 
 	console.log();
@@ -277,6 +326,70 @@ async function fetchFromApi(): Promise<CatalogModel[]> {
 	}
 
 	return models;
+}
+
+/**
+ * Pre-signed URL query parameters that carry credentials or signatures.
+ * Catalog responses sometimes embed pre-signed delivery URLs (e.g. VolcEngine
+ * TOS, AWS S3, GCS, Runway CloudFront with `_jwt`) in `raw_response` fields.
+ * GitHub push protection blocks any commit containing those credentials, so
+ * we strip the entire query string when one of these parameters is present.
+ */
+const CREDENTIAL_QUERY_PARAMS = [
+	"X-Tos-Credential",
+	"X-Tos-Signature",
+	"X-Amz-Credential",
+	"X-Amz-Signature",
+	"X-Amz-Security-Token",
+	"X-Goog-Credential",
+	"X-Goog-Signature",
+	"Signature",
+	"_jwt",
+];
+
+const CREDENTIAL_QUERY_PATTERN = new RegExp(
+	`[?&](${CREDENTIAL_QUERY_PARAMS.join("|")})=`,
+	"i",
+);
+
+function redactCredentialUrls<T>(value: T): T {
+	if (typeof value === "string") {
+		if (value.startsWith("http") && CREDENTIAL_QUERY_PATTERN.test(value)) {
+			const queryIndex = value.indexOf("?");
+			return (queryIndex === -1 ? value : value.slice(0, queryIndex)) as T;
+		}
+		return value;
+	}
+	if (Array.isArray(value)) {
+		return value.map((item) => redactCredentialUrls(item)) as T;
+	}
+	if (value !== null && typeof value === "object") {
+		const out: Record<string, unknown> = {};
+		for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+			out[k] = redactCredentialUrls(v);
+		}
+		return out as T;
+	}
+	return value;
+}
+
+/**
+ * Serialize to JSON with all non-ASCII characters escaped as `\uXXXX`.
+ *
+ * Catalog API responses sometimes return non-ASCII characters as raw UTF-8
+ * (`°`, `“`, `—`) and sometimes as already-escaped sequences (`\u00b0`,
+ * `\u201c`, `\u2014`), depending on the provider. `JSON.stringify` preserves
+ * whatever form is in memory, which means re-running the fetcher rewrites
+ * many model files with no real change — just an encoding flip.
+ *
+ * Forcing ASCII-safe output keeps on-disk content stable across re-runs and
+ * matches the form already checked in.
+ */
+function stringifyAsciiSafe(value: unknown, indent: string): string {
+	return JSON.stringify(value, null, indent).replace(
+		/[\u0080-\uffff]/g,
+		(c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"),
+	);
 }
 
 function getModelFileName(modelId: string): string {
@@ -307,6 +420,7 @@ function writeModels(models: CatalogModel[]): void {
 	// Write each model to a JSON file
 	let written = 0;
 	const skipped: string[] = [];
+	const skippedDeprecated: string[] = [];
 
 	for (const model of models) {
 		// Skip private models
@@ -315,16 +429,24 @@ function writeModels(models: CatalogModel[]): void {
 			continue;
 		}
 
+		if (isDeprecated(model)) {
+			skippedDeprecated.push(model.model_id);
+			continue;
+		}
+
 		// Trim string fields that may have leading/trailing whitespace
 		model.name = model.name.trim();
 		model.description = model.description.trim();
+
+		// Strip credentials from any pre-signed URLs in the response.
+		const redacted = redactCredentialUrls(model);
 
 		const fileName = getModelFileName(model.model_id);
 		const filePath = path.join(OUTPUT_DIR, `${fileName}.json`);
 
 		fs.writeFileSync(
 			filePath,
-			JSON.stringify(model, null, "\t") + "\n",
+			stringifyAsciiSafe(redacted, "\t") + "\n",
 			"utf-8",
 		);
 		written++;
@@ -334,6 +456,9 @@ function writeModels(models: CatalogModel[]): void {
 	console.log(`  Written: ${written} models`);
 	if (skipped.length > 0) {
 		console.log(`  Skipped (private): ${skipped.length}`);
+	}
+	if (skippedDeprecated.length > 0) {
+		console.log(`  Skipped (deprecated): ${skippedDeprecated.length}`);
 	}
 	console.log(`  Output: ${OUTPUT_DIR}`);
 }

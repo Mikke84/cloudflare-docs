@@ -7,6 +7,8 @@ tags:
   - JavaScript
 description: >-
   This tutorial shows you how to build an SMS notification system on Workers to receive updates on a GitHub repository. Your Worker will send you a text update using Twilio when there is new activity on your repository.
+products:
+  - workers
 ---
 
 import { Render, PackageManagers, WranglerConfig } from "~/components";
@@ -36,10 +38,9 @@ Start by using `npm create cloudflare@latest` to create a Worker project in the 
 />
 
 <Render
-	file="c3-post-run-steps"
+	file="c3-post-run-steps-hello-world"
 	product="workers"
 	params={{
-		category: "hello-world",
 		type: "Worker only",
 		lang: "JavaScript",
 	}}

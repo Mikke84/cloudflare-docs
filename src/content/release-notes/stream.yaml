@@ -3,12 +3,20 @@ link: "/stream/changelog/"
 productName: Stream
 productLink: "/stream/"
 entries:
+  - publish_date: "2026-04-13"
+    title: HLS manifests now reference fragmented MP4 segments
+    description: |-
+      On-demand HLS manifests now reference fragmented MP4 (`.mp4`) segments for video and audio, replacing the previous MPEG-TS (`.ts`) segments. HLS manifest URLs have not changed.
+
+      This change has been transparent to the majority of customers. If you use a third-party player or cache HLS manifests, refresh your cached manifests to pick up the updated segment references. Players that fetch manifests fresh on each playback session are unaffected. To ensure best performance, we recommend that you do not cache HLS/DASH manifests outside of Stream. Old segment references may result in `404` errors after 2026-05-13.
+
+      For more information, refer to [Use your own player](/stream/viewing-videos/using-own-player/).
   - publish_date: "2025-03-12"
     title: Stream Live WebRTC WHIP/WHEP Upgrades
     description: |-
       Stream Live WHIP/WHEP will be progressively migrated to a new implementation powered by Cloudflare Realtime (Calls) starting Thursday 2025-03-13. No API or integration changes will be required as part of this upgrade. Customers can expect an improved playback experience. Otherwise, this should be a transparent change, although some error handling cases and status reporting may have changed.
 
-      For more information review the [Stream Live WebRTC beta](/stream/webrtc-beta/) documentation.
+      For more information review the [Stream Live WebRTC beta](/stream/webrtc/) documentation.
   - publish_date: "2025-02-10"
     title: Stream Player ad support adjustments for Google Ad Exchange Verification
     description: |-
@@ -119,13 +127,13 @@ entries:
     title: VP9 support for WebRTC live streams (beta)
     description:
       Cloudflare Stream now supports [VP9](https://developers.google.com/media/vp9)
-      when streaming using [WebRTC (WHIP)](/stream/webrtc-beta/), currently in beta.
+      when streaming using [WebRTC (WHIP)](/stream/webrtc/), currently in beta.
   - publish_date: "2022-11-08"
     title: Reduced time to start WebRTC streaming and playback with Trickle ICE
     description: |-
       Cloudflare Stream's [WHIP](https://datatracker.ietf.org/doc/draft-ietf-wish-whip/) and [WHEP](https://www.ietf.org/archive/id/draft-murillo-whep-01.html) implementations now support [Trickle ICE](https://datatracker.ietf.org/doc/rfc8838/), reducing the time it takes to initialize WebRTC connections, and increasing compatibility with WHIP and WHEP clients.
 
-      For more, refer to [the docs](/stream/webrtc-beta/).
+      For more, refer to [the docs](/stream/webrtc/).
   - publish_date: "2022-11-07"
     title: Deprecating the 'per-video' Analytics API
     description: |-

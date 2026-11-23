@@ -4,6 +4,8 @@ title: Fetch
 head: []
 description: An interface for asynchronously fetching resources via HTTP
   requests inside of a Worker.
+products:
+  - workers
 ---
 
 import { TabItem, Tabs } from "~/components";
@@ -85,8 +87,10 @@ class Default(WorkerEntrypoint):
       _ For all requests this forwards the `Pragma: no-cache` and `Cache-Control: no-cache` headers to the origin.
       _ For `no-store`, requests to origins not hosted by Cloudflare bypass the use of Cloudflare's caches.
       \_ For `no-cache`, requests to origins not hosted by Cloudflare are forced to revalidate with
-      the origin before resonding.
+      the origin before responding.
   - An object that defines the content and behavior of the request.
+
+Cache Rules can also affect `fetch()` requests to external APIs. Refer to [Workers and Cache Rules](/cache/interaction-cloudflare-products/workers-cache-rules/) for precedence and compatibility requirements.
 
 ---
 
@@ -128,6 +132,7 @@ export default {
 ```
 
 ## Related resources
+
 
 - [Example: use `fetch` to respond with another site](/workers/examples/respond-with-another-site/)
 - [Example: Fetch HTML](/workers/examples/fetch-html/)

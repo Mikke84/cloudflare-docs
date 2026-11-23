@@ -7,6 +7,8 @@ products:
 sidebar:
   order: 3
   label: Create a rule via API
+tags:
+  - URL rewrite
 ---
 
 import { Details, Render, APIRequest } from "~/components";
@@ -101,9 +103,8 @@ The following example sets the rules of an existing phase ruleset (`$RULESET_ID`
 ```
 
 <Render
-	file="terraform-use-ref-field"
+	file="terraform-use-ref-field-with-location"
 	product="rules"
-	params={{ addDocsLocation: true }}
 />
 
 </Details>
@@ -171,9 +172,8 @@ The following example sets the rules of an existing phase ruleset (`$RULESET_ID`
 ```
 
 <Render
-	file="terraform-use-ref-field"
+	file="terraform-use-ref-field-with-location"
 	product="rules"
-	params={{ addDocsLocation: true }}
 />
 
 </Details>

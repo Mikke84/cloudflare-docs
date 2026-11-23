@@ -9,6 +9,8 @@ head:
     content: Durable Objects - Use KV within Durable Objects
 description: Read and write to/from KV within a Durable Object
 reviewed: 2023-09-14
+products:
+  - durable-objects
 ---
 
 import { GlossaryTooltip, TabItem, Tabs, WranglerConfig } from "~/components";
@@ -30,6 +32,7 @@ Configure your Wrangler file as follows:
 	"$schema": "./node_modules/wrangler/config-schema.json",
 	"name": "my-worker",
 	"main": "src/index.ts",
+	"upload_source_maps": true,
 	"kv_namespaces": [
 		{
 			"binding": "YOUR_KV_NAMESPACE",

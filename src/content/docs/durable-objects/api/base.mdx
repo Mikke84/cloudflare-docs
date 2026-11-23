@@ -1,8 +1,11 @@
 ---
 title: Durable Object Base Class
+description: API reference for the DurableObject abstract base class and its handler methods.
 pcx_content_type: concept
 sidebar:
   order: 1
+products:
+  - durable-objects
 ---
 
 import {
@@ -75,7 +78,9 @@ class MyDurableObject(DurableObject):
 
 #### Example
 
-<TypeScriptExample>
+<Tabs>
+
+<TypeScriptExample omitTabs={true}>
 ```ts
 export class MyDurableObject extends DurableObject<Env> {
 	async fetch(request: Request): Promise<Response> {
@@ -84,6 +89,58 @@ export class MyDurableObject extends DurableObject<Env> {
 			return new Response("Hello, World!");
 		}
 		return new Response("Not found", { status: 404 });
+	}
+}
+```
+</TypeScriptExample>
+
+<TabItem label="Python" icon="seti:python">
+
+```python
+from workers import DurableObject, Response
+from urllib.parse import urlparse
+
+class MyDurableObject(DurableObject):
+    async def fetch(self, request):
+        path = urlparse(request.url).path
+        if path == "/hello":
+            return Response("Hello, World!")
+        return Response("Not found", status=404)
+```
+
+</TabItem> </Tabs>
+
+### `connect`
+
+:::note[Public beta]
+Raw TCP connections to Workers and Durable Objects are in public beta.
+:::
+
+- <code>connect(socket <Type text="Socket" />)</code>
+  : <Type text="void" /> | <Type text="Promise<void>" />
+  - Called when a Worker or another Durable Object opens a raw socket through a [`DurableObjectStub`](/durable-objects/api/stub/#connect).
+  - Use the socket's readable and writable streams to process or proxy the connection.
+  - This method can be `async`.
+
+#### Parameters
+
+- `socket` <Type text="Socket"/> - the established TCP connection. Refer to the [Socket API](/workers/runtime-apis/tcp-sockets/#socket).
+
+#### Return values
+
+- None.
+
+Keep the returned promise pending while the Durable Object is processing the connection. When the promise settles, the inbound socket closes.
+
+#### Example
+
+<TypeScriptExample>
+```ts
+import { DurableObject } from "cloudflare:workers";
+
+export class TcpSession extends DurableObject<Env> {
+	async connect(socket: Socket): Promise<void> {
+		await socket.readable.pipeTo(socket.writable);
 	}
 }
 ```
@@ -110,7 +167,9 @@ export class MyDurableObject extends DurableObject<Env> {
 
 #### Example
 
-<TypeScriptExample>
+<Tabs>
+
+<TypeScriptExample omitTabs={true}>
 ```ts
 export class MyDurableObject extends DurableObject<Env> {
 	async alarm(alarmInfo?: AlarmInvocationInfo): Promise<void> {
@@ -122,6 +181,20 @@ export class MyDurableObject extends DurableObject<Env> {
 }
 ```
 </TypeScriptExample>
+
+<TabItem label="Python" icon="seti:python">
+
+```python
+from workers import DurableObject
+
+class MyDurableObject(DurableObject):
+    async def alarm(self, alarm_info=None):
+        if alarm_info and alarm_info.isRetry:
+            print(f"Alarm retry attempt {alarm_info.retryCount}")
+        await self.process_scheduled_task()
+```
+
+</TabItem> </Tabs>
 
 ### `webSocketMessage`
 
@@ -144,7 +217,9 @@ export class MyDurableObject extends DurableObject<Env> {
 
 #### Example
 
-<TypeScriptExample>
+<Tabs>
+
+<TypeScriptExample omitTabs={true}>
 ```ts
 export class MyDurableObject extends DurableObject<Env> {
 	async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
@@ -157,6 +232,21 @@ export class MyDurableObject extends DurableObject<Env> {
 }
 ```
 </TypeScriptExample>
+
+<TabItem label="Python" icon="seti:python">
+
+```python
+from workers import DurableObject
+
+class MyDurableObject(DurableObject):
+    async def webSocketMessage(self, ws, message):
+        if isinstance(message, str):
+            ws.send(f"Received: {message}")
+        else:
+            ws.send(f"Received {len(message)} bytes")
+```
+
+</TabItem> </Tabs>
 
 ### `webSocketClose`
 
@@ -180,7 +270,9 @@ export class MyDurableObject extends DurableObject<Env> {
 
 #### Example
 
-<TypeScriptExample>
+<Tabs>
+
+<TypeScriptExample omitTabs={true}>
 ```ts
 export class MyDurableObject extends DurableObject<Env> {
 	async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean) {
@@ -193,6 +285,19 @@ export class MyDurableObject extends DurableObject<Env> {
 }
 ```
 </TypeScriptExample>
+
+<TabItem label="Python" icon="seti:python">
+
+```python
+from workers import DurableObject
+
+class MyDurableObject(DurableObject):
+    async def webSocketClose(self, ws, code, reason, was_clean):
+        ws.close(code, reason)
+        print(f"WebSocket closed: code={code}, reason={reason}")
+```
+
+</TabItem> </Tabs>
 
 ### `webSocketError`
 
@@ -212,7 +317,9 @@ export class MyDurableObject extends DurableObject<Env> {
 
 #### Example
 
-<TypeScriptExample>
+<Tabs>
+
+<TypeScriptExample omitTabs={true}>
 ```ts
 export class MyDurableObject extends DurableObject<Env> {
 	async webSocketError(ws: WebSocket, error: unknown) {
@@ -222,6 +329,18 @@ export class MyDurableObject extends DurableObject<Env> {
 }
 ```
 </TypeScriptExample>
+
+<TabItem label="Python" icon="seti:python">
+
+```python
+from workers import DurableObject
+
+class MyDurableObject(DurableObject):
+    async def webSocketError(self, ws, error):
+        print(f"WebSocket error: {error}")
+```
+
+</TabItem> </Tabs>
 
 ## Properties
 
@@ -238,3 +357,4 @@ export class MyDurableObject extends DurableObject<Env> {
 - [Use WebSockets](/durable-objects/best-practices/websockets/) for WebSocket handler best practices.
 - [Alarms API](/durable-objects/api/alarms/) for scheduling future work.
 - [RPC methods](/durable-objects/best-practices/create-durable-object-stubs-and-send-requests/) for type-safe method calls.
+- [Connect handler](/workers/runtime-apis/handlers/connect/) for inbound TCP connections to Workers.

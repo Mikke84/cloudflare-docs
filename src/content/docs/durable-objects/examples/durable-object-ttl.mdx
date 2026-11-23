@@ -6,6 +6,8 @@ sidebar:
   order: 4
 description: Use the Durable Objects Alarms API to implement a Time To Live (TTL) for Durable Object instances.
 reviewed: 2025-01-21
+products:
+  - durable-objects
 ---
 
 import { TabItem, Tabs, GlossaryTooltip, WranglerConfig } from "~/components";
@@ -130,6 +132,7 @@ To test and deploy this example, configure your Wrangler file to include a Durab
 	"$schema": "./node_modules/wrangler/config-schema.json",
 	"name": "durable-object-ttl",
 	"main": "src/index.ts",
+	"upload_source_maps": true,
 	"durable_objects": {
 		"bindings": [
 			{

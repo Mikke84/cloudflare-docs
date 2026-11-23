@@ -5,17 +5,25 @@ distllms/
 
 # generated types
 .astro/
+.astro-cache/
 
 # skills/ is fetched from middlecache via bin/fetch-skills.ts
-skills/
+/skills/
 !.agents/skills/
+!.agents/commands/
+!.agents/agents/
+!.flue/.agents/
+!.flue/.agents/**
+
+# Logpush dataset pages are fetched from middlecache via bin/fetch-logpush-datasets.ts
+src/content/docs/logs/logpush/logpush-job/datasets/*/*.md
 
 # dependencies
 node_modules/
 
 # lockfiles from other package managers
 yarn.lock
-pnpm-lock.yaml
+package-lock.json
 bun.lockb
 bun.lock
 
@@ -46,14 +54,22 @@ pnpm-debug.log*
 
 tools/relevant_changed_files.txt
 
-# Configuration of AI tools we don't directly support in this repo (generated via rulesync)
-.rulesync/
-.claude/
-CLAUDE.md
-.cursor/
-.github/prompts/
-.github/agents/
-/agents/
-
 # certain versions of opencode mistakenly commit package-lock.json
 .opencode/package-lock.json
+
+# Flue agents build output, secrets, and isolated workspace artifacts
+.flue/dist/
+.flue/.env*
+.flue/.wrangler/
+.flue/.wrangler/tmp/
+.flue/.flue-vite/
+.flue/.flue-vite.wrangler.jsonc
+.flue/node_modules/
+.flue/vitest-results.json
+.flue/replay-results/
+
+# nimbus-docs generated files
+.nimbus/coordinates.json
+.nimbus/lint.json
+.nimbus/routes.json
+.nimbus/page-collections.json

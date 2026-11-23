@@ -1,11 +1,19 @@
 ---
 pcx_content_type: how-to
 title: Configure webhooks
+description: Set up webhooks to receive notifications when Cloudflare Images direct creator uploads succeed or fail.
 sidebar:
   order: 8
+products:
+  - images
 ---
 
 import { DashButton } from "~/components";
+
+:::note
+
+Webhooks are available on all plans. Accounts without a paid zone can configure up to 100 webhook destinations.
+:::
 
 You can set up webhooks to receive notifications about your upload workflow. This will send an HTTP POST request to a specified endpoint when an image either successfully uploads or fails to upload.
 

@@ -1,10 +1,14 @@
 ---
 title: Workers API
+description: Process incoming emails with the email() handler in Cloudflare Workers to forward, reply, or reject messages.
 pcx_content_type: reference
 summary: |
   Process incoming emails with the email() handler in Cloudflare Workers. Forward, reply, reject, or process emails programmatically.
 sidebar:
   order: 1
+products:
+  - email-service
+  - workers
 ---
 
 import { Tabs, TabItem } from "~/components";
@@ -15,11 +19,9 @@ Process incoming emails using the `email()` handler in your Cloudflare Workers. 
 
 Add the `email` handler function to your Worker's exported handlers:
 
-```ts
-interface Env {
-	EMAIL: SendEmail;
-}
+<Tabs> <TabItem label="TypeScript" icon="seti:typescript">
 
+```ts
 export default {
 	async email(message, env, ctx): Promise<void> {
 		// Process incoming email
@@ -27,6 +29,18 @@ export default {
 	},
 } satisfies ExportedHandler<Env>;
 ```
+
+</TabItem> <TabItem label="Python" icon="seti:python">
+
+```python
+from workers import WorkerEntrypoint
+
+class Default(WorkerEntrypoint):
+    async def email(self, message, env, ctx):
+        await message.forward("destination@example.com")
+```
+
+</TabItem> </Tabs>
 
 ### Parameters
 
@@ -51,10 +65,26 @@ interface ForwardableEmailMessage {
 
 	// Actions
 	setReject(reason: string): void;
-	forward(rcptTo: string, headers?: Headers): Promise<void>;
-	reply(message: EmailMessage): Promise<void>;
+	forward(rcptTo: string, headers?: Headers): Promise<EmailSendResult>;
+	reply(
+		message: EmailReplyMessageBuilder | EmailMessage,
+	): Promise<EmailSendResult>;
+}
+
+// Structured reply builder (recommended)
+interface EmailReplyMessageBuilder {
+	from: string | EmailAddress;
+	subject: string;
+	text?: string;
+	html?: string;
+	replyTo?: string | EmailAddress;
+	attachments?: Attachment[];
+	// Custom headers. See /email-service/reference/headers/
+	headers?: { [key: string]: string };
 }
 ```
+
+`EmailAddress` and `Attachment` are the same types that the [Email Sending Workers API](/email-service/api/send-emails/workers-api/#interface) uses.
 
 ### Properties
 
@@ -82,91 +112,40 @@ export default {
 ```
 
 </TabItem>
-<TabItem label="Reading content">
-
-```ts
-export default {
-	async email(message, env, ctx): Promise<void> {
-		// Read raw email content
-		const reader = message.raw.getReader();
-		const chunks = [];
-
-		try {
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-				chunks.push(value);
-			}
-
-			// Convert to string
-			const decoder = new TextDecoder();
-			const rawContent = decoder.decode(
-				new Uint8Array(chunks.reduce((acc, chunk) => [...acc, ...chunk], [])),
-			);
-
-			console.log("Raw email content:", rawContent);
-		} finally {
-			reader.releaseLock();
-		}
-	},
-};
-```
-
-</TabItem>
 <TabItem label="Parse email content">
 
+Use [`postal-mime`](https://www.npmjs.com/package/postal-mime) to parse the MIME structure of an incoming email. The parser handles multipart boundaries, transfer encodings, and character sets correctly.
+
 ```ts
-// Helper function to parse email content
-async function parseEmailContent(
-	message,
-): Promise<{ subject: string; textBody: string; htmlBody: string }> {
-	const reader = message.raw.getReader();
-	const chunks = [];
-
-	try {
-		while (true) {
-			const { done, value } = await reader.read();
-			if (done) break;
-			chunks.push(value);
-		}
-
-		const decoder = new TextDecoder();
-		const rawContent = decoder.decode(
-			new Uint8Array(chunks.reduce((acc, chunk) => [...acc, ...chunk], [])),
-		);
-
-		// Parse MIME content (simplified)
-		const subject = message.headers.get("subject") || "";
-		const textMatch = rawContent.match(
-			/Content-Type: text\/plain[\s\S]*?\n\n([\s\S]*?)(?=\n--|\nContent-Type|\n$)/,
-		);
-		const htmlMatch = rawContent.match(
-			/Content-Type: text\/html[\s\S]*?\n\n([\s\S]*?)(?=\n--|\nContent-Type|\n$)/,
-		);
-
-		return {
-			subject,
-			textBody: textMatch ? textMatch[1].trim() : "",
-			htmlBody: htmlMatch ? htmlMatch[1].trim() : "",
-		};
-	} finally {
-		reader.releaseLock();
-	}
-}
+import PostalMime from "postal-mime";
 
 export default {
 	async email(message, env, ctx): Promise<void> {
-		const { subject, textBody, htmlBody } = await parseEmailContent(message);
+		const email = await PostalMime.parse(message.raw);
 
-		console.log(`Subject: ${subject}`);
-		console.log(`Text: ${textBody}`);
-		console.log(`HTML: ${htmlBody}`);
+		console.log(`Subject: ${email.subject}`);
+		console.log(`Text: ${email.text}`);
+		console.log(`HTML: ${email.html}`);
 	},
 };
 ```
 
 </TabItem>
 </Tabs>
+
+## Authentication results
+
+Email Routing validates Domain-based Message Authentication, Reporting & Conformance (DMARC) before invoking your Worker. It prepends a standard [`Authentication-Results`](https://www.rfc-editor.org/rfc/rfc8601.html) header that records SPF, DKIM, and DMARC results in a machine-readable format.
+
+A simplified header with passing results looks like this:
+
+```txt
+Authentication-Results: mx.cloudflare.net; spf=pass; dkim=pass; dmarc=pass
+```
+
+To check for `dmarc=pass`, read the first `Authentication-Results` header through `message.headers` and verify that its authentication service identifier is `mx.cloudflare.net`. Other `Authentication-Results` headers may have been supplied by the sender and should not be trusted.
+
+Cloudflare invokes the Worker directly, so Authenticated Received Chain (ARC) verification is not required to trust this result. ARC is intended for downstream mail servers after forwarding. ARC headers remain available through `message.headers` and `message.raw`.
 
 ## Email actions
 
@@ -181,7 +160,7 @@ Forward incoming emails to verified destination addresses:
 export default {
 	async email(message, env, ctx): Promise<void> {
 		// Forward to a single address
-		await message.forward("team@company.com");
+		await message.forward("team@example.com");
 	},
 };
 ```
@@ -197,14 +176,14 @@ export default {
 
 		// Route based on recipient
 		if (recipient.includes("support@")) {
-			await message.forward("support-team@company.com");
+			await message.forward("support-team@example.com");
 		} else if (recipient.includes("sales@")) {
-			await message.forward("sales-team@company.com");
+			await message.forward("sales-team@example.com");
 		} else if (subject.toLowerCase().includes("urgent")) {
-			await message.forward("urgent@company.com");
+			await message.forward("urgent@example.com");
 		} else {
 			// Default routing
-			await message.forward("general@company.com");
+			await message.forward("general@example.com");
 		}
 	},
 };
@@ -221,12 +200,12 @@ export default {
 		if (subject.toLowerCase().includes("security")) {
 			// Forward to multiple addresses for security issues
 			await Promise.all([
-				message.forward("security@company.com"),
-				message.forward("admin@company.com"),
-				message.forward("ciso@company.com"),
+				message.forward("security@example.com"),
+				message.forward("admin@example.com"),
+				message.forward("ciso@example.com"),
 			]);
 		} else {
-			await message.forward("general@company.com");
+			await message.forward("general@example.com");
 		}
 	},
 };
@@ -237,7 +216,7 @@ export default {
 
 ### Forward with custom headers
 
-Add custom headers when forwarding:
+Add custom headers when forwarding. Only headers with an `X-` prefix can be added through `forward()`. Other headers are removed.
 
 ```ts
 export default {
@@ -250,42 +229,47 @@ export default {
 		customHeaders.set("X-Spam-Score", "0.1"); // Example spam score
 
 		// Forward with custom headers
-		await message.forward("processed@company.com", customHeaders);
+		await message.forward("processed@example.com", customHeaders);
 	},
 };
 ```
 
 ### Reply to emails
 
-Send automatic replies using the Email Service binding:
+Send automatic replies with `message.reply()`. Replies are threaded with the original message and pass through the same SMTP session, so they preserve the original `Message-ID` chain.
+
+`reply()` accepts two payload forms:
+
+- **Message builder** (recommended): An `EmailReplyMessageBuilder` object with `from`, `subject`, and the message body. The reply goes to the sender of the incoming email, so the builder has no `to`, `cc`, or `bcc` fields.
+- **Raw MIME message**: An `EmailMessage` built from a raw MIME string. Use this form when you already build MIME messages. Refer to [Reply with a raw MIME message](#reply-with-a-raw-mime-message).
+
+In both forms, Email Service sets the `In-Reply-To` and `References` headers from the incoming email. If you set either header yourself, its value must match the value Email Service computes.
+
+Replies through the Workers API must satisfy the following requirements, otherwise `reply()` throws an exception:
+
+- The incoming email must have a valid DMARC result.
+- An email can only be replied to once per `EmailMessage` event. A failed `reply()` call also counts as the one reply.
+- With a raw `EmailMessage`, the recipient in the reply must match the sender of the incoming email.
+- The outgoing sender domain must match the domain that received the email.
+- The reply is rejected if the incoming email has more than 100 entries in its `References` header, to prevent reply loops and abuse.
 
 <Tabs>
 <TabItem label="Simple auto-reply">
 
 ```ts
-interface Env {
-	EMAIL: SendEmail;
-}
-
 export default {
 	async email(message, env, ctx): Promise<void> {
 		const subject = message.headers.get("subject") || "";
 
-		// Send auto-reply
-		await env.EMAIL.send({
-			to: message.from,
-			from: message.to, // Reply from the original recipient address
+		await message.reply({
+			from: message.to,
 			subject: `Re: ${subject}`,
-			html: `
-                <h1>Thank you for your message</h1>
-                <p>We have received your email and will respond shortly.</p>
-                <p>Original message received at: ${new Date().toISOString()}</p>
-            `,
 			text: "Thank you for your message. We have received your email and will respond shortly.",
+			html: "<h1>Thank you for your message</h1><p>We have received your email and will respond shortly.</p>",
 		});
 
 		// Also forward to human team
-		await message.forward("team@company.com");
+		await message.forward("team@example.com");
 	},
 };
 ```
@@ -300,55 +284,95 @@ export default {
 		const recipient = message.to;
 		const subject = message.headers.get("subject") || "";
 
-		// Don't reply to automated emails
+		// Do not reply to automated emails
 		if (
 			sender.includes("noreply") ||
 			sender.includes("no-reply") ||
 			subject.toLowerCase().includes("automated")
 		) {
-			await message.forward("team@company.com");
+			await message.forward("team@example.com");
 			return;
 		}
 
 		// Customized auto-reply based on recipient
-		let replyMessage = "";
-		let replySubject = `Re: ${subject}`;
+		let html = "";
 
 		if (recipient.includes("support@")) {
-			replyMessage = `
+			html = `
                 <h1>Support Request Received</h1>
                 <p>Thank you for contacting support. Your request has been assigned ticket #${Date.now()}.</p>
                 <p>Expected response time: 2-4 hours during business hours.</p>
             `;
 		} else if (recipient.includes("sales@")) {
-			replyMessage = `
+			html = `
                 <h1>Sales Inquiry Received</h1>
                 <p>Thank you for your interest in our products.</p>
                 <p>A sales representative will contact you within 24 hours.</p>
             `;
 		} else {
-			replyMessage = `
+			html = `
                 <h1>Message Received</h1>
                 <p>Thank you for your message. We will respond within 2 business days.</p>
             `;
 		}
 
-		await env.EMAIL.send({
-			to: sender,
+		await message.reply({
 			from: recipient,
-			subject: replySubject,
-			html: replyMessage,
-			text: replyMessage.replace(/<[^>]*>/g, ""), // Strip HTML for text version
+			subject: `Re: ${subject}`,
+			text: html.replace(/<[^>]*>/g, ""),
+			html,
 		});
 
 		// Forward to appropriate team
-		await message.forward("team@company.com");
+		await message.forward("team@example.com");
 	},
 };
 ```
 
 </TabItem>
 </Tabs>
+
+#### Reply with a raw MIME message
+
+Pass an `EmailMessage` to `reply()` to send a MIME message that you build yourself. The following example uses [`mimetext`](https://www.npmjs.com/package/mimetext) to build the MIME body. The `mimetext` package requires the [`nodejs_compat`](/workers/runtime-apis/nodejs/) compatibility flag.
+
+```ts
+import { EmailMessage } from "cloudflare:email";
+import { createMimeMessage } from "mimetext";
+
+export default {
+	async email(message, env, ctx): Promise<void> {
+		const subject = message.headers.get("subject") || "";
+		const messageId = message.headers.get("Message-ID");
+
+		const reply = createMimeMessage();
+		if (messageId) {
+			reply.setHeader("In-Reply-To", messageId);
+			reply.setHeader("References", messageId);
+		}
+		reply.setSender(message.to);
+		reply.setRecipient(message.from);
+		reply.setSubject(`Re: ${subject}`);
+		reply.addMessage({
+			contentType: "text/plain",
+			data: "Thank you for your message. We have received your email and will respond shortly.",
+		});
+
+		await message.reply(
+			new EmailMessage(message.to, message.from, reply.asRaw()),
+		);
+	},
+};
+```
+
+#### Reply errors
+
+`reply()` throws errors with the same `code` property as [`send()`](/email-service/api/send-emails/workers-api/#error-codes). The following codes are specific to replies:
+
+| Error code                         | Common causes                                                                   |
+| ---------------------------------- | ------------------------------------------------------------------------------- |
+| `E_TEMPORARY_AUTHENTICATION_ERROR` | Authentication of the incoming email failed temporarily.                        |
+| `E_FIELD_MISSING`                  | The incoming email has no `Message-ID` header, so the reply cannot be threaded. |
 
 ### Reject emails
 
@@ -372,7 +396,7 @@ export default {
 		}
 
 		// Continue processing
-		await message.forward("inbox@company.com");
+		await message.forward("inbox@example.com");
 	},
 };
 ```
@@ -398,13 +422,13 @@ export default {
 
 		// Check message size
 		if (message.rawSize > 25 * 1024 * 1024) {
-			// 25MB limit
+			// 25 MiB limit (inbound message size)
 			message.setReject("Message too large");
 			return;
 		}
 
 		// Continue processing
-		await message.forward("inbox@company.com");
+		await message.forward("inbox@example.com");
 	},
 };
 ```
@@ -441,7 +465,7 @@ export default {
 
 			// Fallback: forward to admin
 			try {
-				await message.forward("admin@company.com");
+				await message.forward("admin@example.com");
 			} catch (fallbackError) {
 				console.error("Fallback forwarding failed:", fallbackError);
 				// Last resort: reject the email
@@ -456,20 +480,19 @@ async function processEmail(message, env) {
 	const recipient = message.to;
 
 	if (recipient.includes("support@")) {
-		await message.forward("support@company.com");
+		await message.forward("support@example.com");
 	} else if (recipient.includes("sales@")) {
-		await message.forward("sales@company.com");
+		await message.forward("sales@example.com");
 	} else {
-		await message.forward("general@company.com");
+		await message.forward("general@example.com");
 	}
 }
 ```
 
----
+## Next steps
 
-**Next steps:**
-
-- Test locally: [Email routing development](/email-service/local-development/routing/)
+- Test locally: [Email routing development](/email-service/observability/local-development/routing/)
+- Manage rules and addresses programmatically with the [Email Routing REST API](/email-service/api/email-routing-rest-api/)
 - Set up [email routing configuration](/email-service/configuration/email-routing-addresses/)
-- See [email routing examples](/email-service/examples/email-routing/) for advanced email processing
-- Learn about [spam filtering](/email-service/examples/email-routing/spam-filtering/) with Workers
+- Refer to [email routing examples](/email-service/examples/email-routing/) for advanced email processing
+- Filter spam with Workers using the [spam filtering example](/email-service/examples/email-routing/spam-filtering/)
